@@ -5,6 +5,7 @@ using Moq;
 using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Mappings;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace WebApplicationFlytwo.Tests.Fixtures;
 
@@ -20,8 +21,17 @@ public class TestFixture : IDisposable
 
     public IMapper CreateMapper()
     {
-        var config = new MapperConfiguration(cfg => cfg.AddProfile<TodoProfile>());
+        var config = new MapperConfiguration(cfg =>
+        {
+            cfg.AddProfile<TodoProfile>();
+            cfg.AddProfile<ProductProfile>();
+        });
         return config.CreateMapper();
+    }
+
+    public IFusionCache CreateCache()
+    {
+        return new FusionCache(new FusionCacheOptions());
     }
 
     public Mock<ILogger<T>> CreateLogger<T>()
@@ -61,6 +71,49 @@ public class TestFixture : IDisposable
         }
 
         return todos;
+    }
+
+    public static Product CreateProduct(int id = 1, string name = "Test Product", string category = "Electronics", decimal price = 99.99m)
+    {
+        return new Product
+        {
+            Id = id,
+            Name = name,
+            Description = $"Description for {name}",
+            Category = category,
+            Price = price,
+            StockQuantity = 100,
+            Sku = $"SKU-{id:D6}",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = null
+        };
+    }
+
+    public static List<Product> CreateProducts(int count)
+    {
+        var products = new List<Product>();
+        var categories = new[] { "Electronics", "Clothing", "Books", "Home" };
+        var baseDate = DateTime.UtcNow;
+
+        for (int i = 1; i <= count; i++)
+        {
+            products.Add(new Product
+            {
+                Id = i,
+                Name = $"Product {i}",
+                Description = $"Description {i}",
+                Category = categories[(i - 1) % categories.Length],
+                Price = 10.00m + i,
+                StockQuantity = i * 10,
+                Sku = $"SKU-{i:D6}",
+                IsActive = i % 5 != 0, // 80% active
+                CreatedAt = baseDate.AddMinutes(-i),
+                UpdatedAt = null
+            });
+        }
+
+        return products;
     }
 
     public void Dispose()

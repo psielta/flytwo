@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.Mappings;
+using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Serialization.NewtonsoftJson;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -42,7 +44,7 @@ try
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
     // AutoMapper
-    builder.Services.AddAutoMapper(typeof(TodoProfile));
+    builder.Services.AddAutoMapper(typeof(TodoProfile), typeof(ProductProfile));
 
     // FluentValidation
     builder.Services.AddFluentValidationAutoValidation();
@@ -63,7 +65,36 @@ try
         c.EnableAnnotations();
     });
 
+    // Redis Distributed Cache
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = builder.Configuration.GetConnectionString("Redis");
+        options.InstanceName = "FlyTwo:";
+    });
+
+    // FusionCache
+    var cacheConfig = builder.Configuration.GetSection("Cache");
+    builder.Services.AddFusionCache()
+        .WithDefaultEntryOptions(options =>
+        {
+            options.Duration = TimeSpan.FromMinutes(cacheConfig.GetValue<int>("DefaultDurationMinutes", 5));
+            options.FailSafeMaxDuration = TimeSpan.FromMinutes(cacheConfig.GetValue<int>("FailSafeMaxDurationMinutes", 30));
+            options.FactorySoftTimeout = TimeSpan.FromMilliseconds(cacheConfig.GetValue<int>("FactorySoftTimeoutMs", 1000));
+            options.FactoryHardTimeout = TimeSpan.FromMilliseconds(cacheConfig.GetValue<int>("FactoryHardTimeoutMs", 5000));
+            options.IsFailSafeEnabled = true;
+        })
+        .WithSerializer(new FusionCacheNewtonsoftJsonSerializer())
+        .AsHybridCache();
+
     var app = builder.Build();
+
+    // Apply migrations and seed data
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await context.Database.MigrateAsync();
+        await ProductSeeder.SeedAsync(context);
+    }
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())

@@ -19,13 +19,16 @@ ASP.NET Core 8.0 Web API com arquitetura em camadas.
 | **Validation** | FluentValidation.AspNetCore | 11.3.0 | Fluent validation rules |
 | **Docs** | Swashbuckle.AspNetCore | 6.6.2 | OpenAPI/Swagger generation |
 | **Docs** | Swashbuckle.AspNetCore.Annotations | 6.6.2 | Swagger annotations |
+| **Cache** | ZiggyCreatures.FusionCache | 2.4.0 | Hybrid cache (L1 Memory + L2 Redis) |
+| **Cache** | ZiggyCreatures.FusionCache.Serialization.NewtonsoftJson | 2.4.0 | JSON serialization para cache |
+| **Cache** | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.11 | Redis distributed cache provider |
 
 ## Arquitetura
 
 ```
 WebApplicationFlytwo/
 ├── Controllers/           # API Controllers (presentation layer)
-├── Data/                  # DbContext (data access layer)
+├── Data/                  # DbContext + Seeders (data access layer)
 ├── DTOs/                  # Request/Response objects
 ├── Entities/              # Domain entities (EF Core models)
 ├── Mappings/              # AutoMapper profiles
@@ -68,6 +71,26 @@ builder.Services.AddControllers()
         options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
         options.SerializerSettings.NullValueHandling = NullValueHandling.Ignore;
     });
+
+// Redis Distributed Cache
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName = "FlyTwo:";
+});
+
+// FusionCache (Hybrid: L1 Memory + L2 Redis)
+builder.Services.AddFusionCache()
+    .WithDefaultEntryOptions(options =>
+    {
+        options.Duration = TimeSpan.FromMinutes(5);
+        options.FailSafeMaxDuration = TimeSpan.FromMinutes(30);
+        options.FactorySoftTimeout = TimeSpan.FromMilliseconds(1000);
+        options.FactoryHardTimeout = TimeSpan.FromMilliseconds(5000);
+        options.IsFailSafeEnabled = true;
+    })
+    .WithSerializer(new FusionCacheNewtonsoftJsonSerializer())
+    .AsHybridCache();
 ```
 
 ## Database
@@ -88,6 +111,15 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: flytwo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
 ```
 
 ### Connection String
@@ -95,7 +127,14 @@ services:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=flytwodb;Username=flytwo;Password=flytwo123"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=flytwodb;Username=flytwo;Password=flytwo123",
+    "Redis": "localhost:6379"
+  },
+  "Cache": {
+    "DefaultDurationMinutes": 5,
+    "FailSafeMaxDurationMinutes": 30,
+    "FactorySoftTimeoutMs": 1000,
+    "FactoryHardTimeoutMs": 5000
   }
 }
 ```
@@ -130,9 +169,13 @@ dotnet ef database update
 dotnet ef migrations remove
 
 # Docker
-docker-compose up -d      # Iniciar PostgreSQL
+docker-compose up -d      # Iniciar PostgreSQL e Redis
 docker-compose down       # Parar
 docker-compose down -v    # Parar e remover volumes
+
+# Verificar Redis
+docker exec -it flytwo-redis redis-cli ping
+docker exec -it flytwo-redis redis-cli keys "FlyTwo:*"
 ```
 
 ## API Endpoints
@@ -146,6 +189,17 @@ docker-compose down -v    # Parar e remover volumes
 | POST | `/api/todo` | `CreateTodoRequest` | `201 Created` | `400 Bad Request` | Create |
 | PUT | `/api/todo/{id}` | `UpdateTodoRequest` | `200 OK` | `400 Bad Request`, `404 Not Found` | Update |
 | DELETE | `/api/todo/{id}` | - | `204 No Content` | `404 Not Found` | Delete |
+
+### Product Controller (com Cache)
+
+| Method | Route | Cache | Success | Error | Description |
+|--------|-------|-------|---------|-------|-------------|
+| GET | `/api/product` | 5 min | `200 OK` | - | Lista todos (cached) |
+| GET | `/api/product/{id}` | 5 min | `200 OK` | `404 Not Found` | Busca por ID (cached) |
+| GET | `/api/product/category/{cat}` | 5 min | `200 OK` | - | Filtra por categoria (cached) |
+| POST | `/api/product` | Invalida | `201 Created` | `400 Bad Request` | Cria produto |
+| PUT | `/api/product/{id}` | Invalida | `200 OK` | `400`, `404` | Atualiza produto |
+| DELETE | `/api/product/{id}` | Invalida | `204 No Content` | `404 Not Found` | Remove produto |
 
 ### OpenAPI Documentation
 
@@ -222,14 +276,15 @@ policy.WithOrigins("http://localhost:5173")
 ```
 WebApplicationFlytwo.Tests/
 ├── Controllers/
-│   └── TodoControllerTests.cs      # 16 testes
+│   ├── TodoControllerTests.cs      # 16 testes
+│   └── ProductControllerTests.cs   # 26 testes (com cache)
 ├── Validators/
 │   ├── CreateTodoValidatorTests.cs # 10 testes
 │   └── UpdateTodoValidatorTests.cs # 12 testes
 ├── Mappings/
 │   └── TodoProfileTests.cs         # 8 testes
 ├── Fixtures/
-│   └── TestFixture.cs              # Test utilities
+│   └── TestFixture.cs              # Test utilities (DbContext, Mapper, Cache, Factories)
 └── WebApplicationFlytwo.Tests.csproj
 ```
 
@@ -363,3 +418,67 @@ reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coveragereport"
 5. **IClassFixture**: Compartilhamento eficiente de recursos
 6. **Testes de borda**: Validação de limites (200/1000 chars)
 7. **Testes negativos**: Cobertura de cenários de erro (404, validation errors)
+
+## Cache (FusionCache + Redis)
+
+### Arquitetura de Cache Híbrido
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      FusionCache                            │
+├─────────────────────────────────────────────────────────────┤
+│  L1: MemoryCache (ultra-rápido, local por instância)       │
+│  L2: Redis (distribuído, compartilhado entre instâncias)   │
+│  Fail-safe: Cache antigo usado se backend offline          │
+│  Thundering herd protection: Lock por chave                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Padrões de Cache Implementados
+
+| Padrão | Operação | Descrição |
+|--------|----------|-----------|
+| **Cache-aside** | GET | `GetOrSetAsync()` - busca do cache, se miss busca do DB e popula cache |
+| **Invalidação seletiva** | POST/PUT/DELETE | `RemoveAsync()` - invalida chaves específicas e listas relacionadas |
+| **Cache por filtro** | GET by category | Chave inclui parâmetro do filtro |
+
+### Cache Keys
+
+| Operação | Cache Key | TTL |
+|----------|-----------|-----|
+| GetAll | `products:all` | 5 min |
+| GetById | `product:{id}` | 5 min |
+| GetByCategory | `products:category:{category}` | 5 min |
+
+### Exemplo de Uso
+
+```csharp
+// Cache-aside pattern com GetOrSetAsync
+var product = await _cache.GetOrSetAsync(
+    $"product:{id}",
+    async ct => await _context.Products.FindAsync(new object[] { id }, ct)
+);
+
+// Invalidação após write
+await _cache.RemoveAsync($"product:{id}");
+await _cache.RemoveAsync("products:all");
+```
+
+### Configuração de Fail-Safe
+
+O FusionCache está configurado com fail-safe habilitado:
+
+| Config | Valor | Descrição |
+|--------|-------|-----------|
+| `Duration` | 5 min | TTL padrão do cache |
+| `FailSafeMaxDuration` | 30 min | TTL máximo em modo fail-safe |
+| `FactorySoftTimeout` | 1000 ms | Timeout antes de usar cache stale |
+| `FactoryHardTimeout` | 5000 ms | Timeout máximo absoluto |
+| `IsFailSafeEnabled` | true | Retorna cache antigo se DB offline |
+
+### Seed de Dados
+
+O banco é populado automaticamente com **1000 produtos** em 8 categorias na primeira execução:
+- Electronics, Clothing, Books, Home, Sports, Toys, Food, Beauty
+- Preços entre $1 e $1000
+- 90% dos produtos ativos
