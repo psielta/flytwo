@@ -21,6 +21,10 @@ public class ProductController : ControllerBase
     private const string CacheKeyAllProducts = "products:all";
     private const string CacheKeyProductById = "product:{0}";
     private const string CacheKeyProductsByCategory = "products:category:{0}";
+    private const string CacheKeyProductsPage = "products:page:{0}:{1}";
+    private const string CacheKeyProductsCount = "products:count";
+    private const string CacheKeyProductsCategoryPage = "products:category:{0}:page:{1}:{2}";
+    private const string CacheKeyProductsCategoryCount = "products:category:{0}:count";
 
     public ProductController(
         AppDbContext context,
@@ -54,6 +58,51 @@ public class ProductController : ControllerBase
         );
 
         return Ok(_mapper.Map<IEnumerable<ProductDto>>(products));
+    }
+
+    [HttpGet("paged")]
+    [SwaggerOperation(Summary = "Get products with pagination (cached)")]
+    [ProducesResponseType(typeof(PagedResponse<ProductDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<ProductDto>>> GetPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25)
+    {
+        _logger.LogInformation("Getting products page {PageNumber} with size {PageSize}", pageNumber, pageSize);
+
+        pageNumber = Math.Max(1, pageNumber);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var totalCount = await _cache.GetOrSetAsync(
+            CacheKeyProductsCount,
+            async ct =>
+            {
+                _logger.LogInformation("Cache miss for products count - fetching from database");
+                return await _context.Products.CountAsync(ct);
+            }
+        );
+
+        var cacheKey = string.Format(CacheKeyProductsPage, pageNumber, pageSize);
+        var products = await _cache.GetOrSetAsync(
+            cacheKey,
+            async ct =>
+            {
+                _logger.LogInformation("Cache miss for products page {PageNumber} - fetching from database", pageNumber);
+                return await _context.Products
+                    .AsNoTracking()
+                    .OrderByDescending(p => p.CreatedAt)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
+            }
+        );
+
+        return Ok(new PagedResponse<ProductDto>
+        {
+            Items = _mapper.Map<List<ProductDto>>(products),
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        });
     }
 
     [HttpGet("{id}")]
@@ -103,6 +152,59 @@ public class ProductController : ControllerBase
         );
 
         return Ok(_mapper.Map<IEnumerable<ProductDto>>(products));
+    }
+
+    [HttpGet("category/{category}/paged")]
+    [SwaggerOperation(Summary = "Get products by category with pagination (cached)")]
+    [ProducesResponseType(typeof(PagedResponse<ProductDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<ProductDto>>> GetByCategoryPaged(
+        string category,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 25)
+    {
+        _logger.LogInformation("Getting products in category {Category} page {PageNumber} with size {PageSize}",
+            category, pageNumber, pageSize);
+
+        pageNumber = Math.Max(1, pageNumber);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        var categoryLower = category.ToLower();
+
+        var countCacheKey = string.Format(CacheKeyProductsCategoryCount, categoryLower);
+        var totalCount = await _cache.GetOrSetAsync(
+            countCacheKey,
+            async ct =>
+            {
+                _logger.LogInformation("Cache miss for category {Category} count - fetching from database", category);
+                return await _context.Products
+                    .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
+                    .CountAsync(ct);
+            }
+        );
+
+        var pageCacheKey = string.Format(CacheKeyProductsCategoryPage, categoryLower, pageNumber, pageSize);
+        var products = await _cache.GetOrSetAsync(
+            pageCacheKey,
+            async ct =>
+            {
+                _logger.LogInformation("Cache miss for category {Category} page {PageNumber} - fetching from database",
+                    category, pageNumber);
+                return await _context.Products
+                    .AsNoTracking()
+                    .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
+                    .OrderBy(p => p.Name)
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
+            }
+        );
+
+        return Ok(new PagedResponse<ProductDto>
+        {
+            Items = _mapper.Map<List<ProductDto>>(products),
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        });
     }
 
     [HttpPost]
@@ -206,7 +308,15 @@ public class ProductController : ControllerBase
     private async Task InvalidateListCaches(string category)
     {
         _logger.LogDebug("Invalidating cache for category {Category} and all products", category);
+
+        // Invalidate legacy caches
         await _cache.RemoveAsync(CacheKeyAllProducts);
         await _cache.RemoveAsync(string.Format(CacheKeyProductsByCategory, category.ToLower()));
+
+        // Invalidate count caches (pagination)
+        await _cache.RemoveAsync(CacheKeyProductsCount);
+        await _cache.RemoveAsync(string.Format(CacheKeyProductsCategoryCount, category.ToLower()));
+
+        // Page caches expire via TTL (5 min)
     }
 }

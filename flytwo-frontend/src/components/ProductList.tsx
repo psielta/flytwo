@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import {
@@ -10,13 +10,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   IconButton,
   Chip,
   Alert,
@@ -24,10 +17,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress,
   FormHelperText,
   InputAdornment
 } from "@mui/material";
+import { DataGrid } from "@mui/x-data-grid";
+import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -92,26 +86,44 @@ export function ProductList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<ProductDto | null>(null);
 
-  const fetchProducts = async (signal?: AbortSignal) => {
+  // Pagination state
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 25,
+  });
+  const [totalRows, setTotalRows] = useState(0);
+
+  const fetchProducts = useCallback(async (signal?: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
+
+      const pageNumber = paginationModel.page + 1; // DataGrid uses 0-indexed
+      const pageSize = paginationModel.pageSize;
+
       const data = selectedCategory
-        ? await client.category(selectedCategory, signal)
-        : await client.productAll(signal);
-      setProducts(data);
+        ? await client.paged2(selectedCategory, pageNumber, pageSize, signal)
+        : await client.paged(pageNumber, pageSize, signal);
+
+      setProducts(data.items || []);
+      setTotalRows(data.totalCount || 0);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Failed to fetch products");
     } finally {
       setLoading(false);
     }
-  };
+  }, [paginationModel, selectedCategory]);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchProducts(controller.signal);
     return () => controller.abort();
+  }, [fetchProducts]);
+
+  // Reset to first page when category changes
+  useEffect(() => {
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, [selectedCategory]);
 
   const handleSubmit = async (values: ProductFormValues, { resetForm }: { resetForm: () => void }) => {
@@ -185,6 +197,109 @@ export function ProductList() {
     }).format(price || 0);
   };
 
+  const columns: GridColDef[] = [
+    {
+      field: "name",
+      headerName: "Name",
+      flex: 2,
+      minWidth: 200,
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <Box>
+          <Typography variant="body2" fontWeight="medium">
+            {params.row.name}
+          </Typography>
+          {params.row.description && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              {params.row.description.length > 50
+                ? `${params.row.description.substring(0, 50)}...`
+                : params.row.description}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: "category",
+      headerName: "Category",
+      width: 130,
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <Chip label={params.row.category} size="small" color="primary" variant="outlined" />
+      ),
+    },
+    {
+      field: "price",
+      headerName: "Price",
+      width: 120,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <Typography fontWeight="bold">{formatPrice(params.row.price)}</Typography>
+      ),
+    },
+    {
+      field: "stockQuantity",
+      headerName: "Stock",
+      width: 100,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <Typography color={(params.row.stockQuantity || 0) < 10 ? "error" : "inherit"}>
+          {params.row.stockQuantity}
+        </Typography>
+      ),
+    },
+    {
+      field: "sku",
+      headerName: "SKU",
+      width: 130,
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <Typography variant="body2" fontFamily="monospace">
+          {params.row.sku}
+        </Typography>
+      ),
+    },
+    {
+      field: "isActive",
+      headerName: "Active",
+      width: 100,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <Chip
+          label={params.row.isActive ? "Yes" : "No"}
+          size="small"
+          color={params.row.isActive ? "success" : "error"}
+        />
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 120,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams<ProductDto>) => (
+        <>
+          <IconButton size="small" onClick={() => startEditing(params.row)} color="primary">
+            <EditIcon />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setProductToDelete(params.row);
+              setDeleteConfirmOpen(true);
+            }}
+            color="error"
+          >
+            <DeleteIcon />
+          </IconButton>
+        </>
+      ),
+    },
+  ];
+
   return (
     <Box>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
@@ -224,94 +339,40 @@ export function ProductList() {
           </Select>
         </FormControl>
         <Typography variant="body2" color="text.secondary">
-          {loading ? "Loading..." : `${products.length} products`}
+          {loading ? "Loading..." : `${totalRows} products total`}
         </Typography>
       </Box>
 
-      {loading && products.length === 0 ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell align="right">Price</TableCell>
-                <TableCell align="right">Stock</TableCell>
-                <TableCell>SKU</TableCell>
-                <TableCell align="center">Active</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {products.map((product) => (
-                <TableRow key={product.id} hover>
-                  <TableCell>
-                    <Typography variant="body1" fontWeight="medium">
-                      {product.name}
-                    </Typography>
-                    {product.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {product.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={product.category} size="small" color="primary" variant="outlined" />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography fontWeight="bold">{formatPrice(product.price)}</Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography color={(product.stockQuantity || 0) < 10 ? "error" : "inherit"}>
-                      {product.stockQuantity}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontFamily="monospace">
-                      {product.sku}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={product.isActive ? "Yes" : "No"}
-                      size="small"
-                      color={product.isActive ? "success" : "error"}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton size="small" onClick={() => startEditing(product)} color="primary">
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setProductToDelete(product);
-                        setDeleteConfirmOpen(true);
-                      }}
-                      color="error"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {products.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    <Typography color="text.secondary" py={4}>
-                      No products found. {selectedCategory && "Try selecting a different category or"} Add one above!
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataGrid
+        rows={products}
+        columns={columns}
+        paginationMode="server"
+        rowCount={totalRows}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
+        pageSizeOptions={[10, 25, 50, 100]}
+        loading={loading}
+        disableRowSelectionOnClick
+        autoHeight
+        getRowId={(row) => row.id!}
+        getRowHeight={() => "auto"}
+        sx={{
+          "& .MuiDataGrid-cell": {
+            py: 1,
+          },
+        }}
+        slotProps={{
+          loadingOverlay: {
+            variant: "skeleton",
+            noRowsVariant: "skeleton",
+          },
+        }}
+        localeText={{
+          noRowsLabel: selectedCategory
+            ? "No products found. Try selecting a different category or add one above!"
+            : "No products found. Add one above!",
+        }}
+      />
 
       {/* Product Form Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>

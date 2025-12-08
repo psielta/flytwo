@@ -105,6 +105,54 @@ export class ApiClient {
     }
 
     /**
+     * Get products with pagination (cached)
+     * @param pageNumber (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    paged(pageNumber?: number | undefined, pageSize?: number | undefined, signal?: AbortSignal): Promise<ProductDtoPagedResponse> {
+        let url_ = this.baseUrl + "/api/Product/paged?";
+        if (pageNumber === null)
+            throw new globalThis.Error("The parameter 'pageNumber' cannot be null.");
+        else if (pageNumber !== undefined)
+            url_ += "pageNumber=" + encodeURIComponent("" + pageNumber) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaged(_response);
+        });
+    }
+
+    protected processPaged(response: Response): Promise<ProductDtoPagedResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDtoPagedResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDtoPagedResponse>(null as any);
+    }
+
+    /**
      * Get product by id (cached)
      * @return OK
      */
@@ -292,6 +340,57 @@ export class ApiClient {
             });
         }
         return Promise.resolve<ProductDto[]>(null as any);
+    }
+
+    /**
+     * Get products by category with pagination (cached)
+     * @param pageNumber (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    paged2(category: string, pageNumber?: number | undefined, pageSize?: number | undefined, signal?: AbortSignal): Promise<ProductDtoPagedResponse> {
+        let url_ = this.baseUrl + "/api/Product/category/{category}/paged?";
+        if (category === undefined || category === null)
+            throw new globalThis.Error("The parameter 'category' must be defined.");
+        url_ = url_.replace("{category}", encodeURIComponent("" + category));
+        if (pageNumber === null)
+            throw new globalThis.Error("The parameter 'pageNumber' cannot be null.");
+        else if (pageNumber !== undefined)
+            url_ += "pageNumber=" + encodeURIComponent("" + pageNumber) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaged2(_response);
+        });
+    }
+
+    protected processPaged2(response: Response): Promise<ProductDtoPagedResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDtoPagedResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDtoPagedResponse>(null as any);
     }
 
     /**
@@ -603,6 +702,16 @@ export interface ProductDto {
     isActive?: boolean;
     createdAt?: string;
     updatedAt?: string | undefined;
+}
+
+export interface ProductDtoPagedResponse {
+    items?: ProductDto[] | undefined;
+    pageNumber?: number;
+    pageSize?: number;
+    totalCount?: number;
+    readonly totalPages?: number;
+    readonly hasPreviousPage?: boolean;
+    readonly hasNextPage?: boolean;
 }
 
 export interface TodoDto {

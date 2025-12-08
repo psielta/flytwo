@@ -707,4 +707,298 @@ public class ProductControllerTests : IClassFixture<TestFixture>
     }
 
     #endregion
+
+    #region GetPaged Tests
+
+    [Fact]
+    public async Task GetPaged_ReturnsCorrectPageSize()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(50);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: 1, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(10);
+        pagedResult.PageNumber.Should().Be(1);
+        pagedResult.PageSize.Should().Be(10);
+        pagedResult.TotalCount.Should().Be(50);
+        pagedResult.TotalPages.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetPaged_ReturnsCorrectPage()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(30);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: 2, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(10);
+        pagedResult.PageNumber.Should().Be(2);
+        pagedResult.HasPreviousPage.Should().BeTrue();
+        pagedResult.HasNextPage.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetPaged_LastPageHasCorrectCount()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(25);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: 3, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(5); // 25 total, page 3 with size 10 = 5 items
+        pagedResult.HasNextPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetPaged_ClampsPageSizeToMax100()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(150);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: 1, pageSize: 500);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(100); // Clamped to max 100
+        pagedResult.PageSize.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task GetPaged_ReturnsEmptyForPageBeyondData()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(10);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: 100, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().BeEmpty();
+        pagedResult.TotalCount.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetPaged_OrdersByCreatedAtDescending()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(10);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: 1, pageSize: 5);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        var items = pagedResult.Items;
+        items[0].CreatedAt.Should().BeOnOrAfter(items[1].CreatedAt);
+        items[1].CreatedAt.Should().BeOnOrAfter(items[2].CreatedAt);
+    }
+
+    [Fact]
+    public async Task GetPaged_ClampsPageNumberToMin1()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = TestFixture.CreateProducts(10);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetPaged(pageNumber: -5, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.PageNumber.Should().Be(1);
+        pagedResult.Items.Should().HaveCount(10);
+    }
+
+    #endregion
+
+    #region GetByCategoryPaged Tests
+
+    [Fact]
+    public async Task GetByCategoryPaged_FiltersAndPaginates()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var electronics = Enumerable.Range(1, 20).Select(i => TestFixture.CreateProduct(i, $"Electronics {i}", "Electronics")).ToList();
+        var clothing = Enumerable.Range(21, 10).Select(i => TestFixture.CreateProduct(i, $"Clothing {i}", "Clothing")).ToList();
+        await context.Products.AddRangeAsync(electronics.Concat(clothing));
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetByCategoryPaged("Electronics", pageNumber: 1, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(10);
+        pagedResult.TotalCount.Should().Be(20);
+        pagedResult.Items.Should().AllSatisfy(p => p.Category.Should().Be("Electronics"));
+    }
+
+    [Fact]
+    public async Task GetByCategoryPaged_IsCaseInsensitive()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = new List<Product>
+        {
+            TestFixture.CreateProduct(1, "Product 1", "Electronics"),
+            TestFixture.CreateProduct(2, "Product 2", "ELECTRONICS"),
+            TestFixture.CreateProduct(3, "Product 3", "electronics")
+        };
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetByCategoryPaged("ELECTROnics", pageNumber: 1, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(3);
+        pagedResult.TotalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetByCategoryPaged_ReturnsOnlyActiveProducts()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var activeProducts = Enumerable.Range(1, 10).Select(i => TestFixture.CreateProduct(i, $"Active {i}", "Electronics")).ToList();
+        var inactiveProduct = TestFixture.CreateProduct(11, "Inactive", "Electronics");
+        inactiveProduct.IsActive = false;
+
+        await context.Products.AddRangeAsync(activeProducts);
+        await context.Products.AddAsync(inactiveProduct);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetByCategoryPaged("Electronics", pageNumber: 1, pageSize: 25);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items.Should().HaveCount(10); // Only active products
+        pagedResult.TotalCount.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetByCategoryPaged_ReturnsProductsOrderedByName()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var products = new List<Product>
+        {
+            TestFixture.CreateProduct(1, "Zebra Product", "Electronics"),
+            TestFixture.CreateProduct(2, "Alpha Product", "Electronics"),
+            TestFixture.CreateProduct(3, "Middle Product", "Electronics")
+        };
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context);
+
+        // Act
+        var result = await controller.GetByCategoryPaged("Electronics", pageNumber: 1, pageSize: 10);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.Items[0].Name.Should().Be("Alpha Product");
+        pagedResult.Items[1].Name.Should().Be("Middle Product");
+        pagedResult.Items[2].Name.Should().Be("Zebra Product");
+    }
+
+    #endregion
+
+    #region Pagination Cache Tests
+
+    [Fact]
+    public async Task GetPaged_UsesCacheOnSecondCall()
+    {
+        // Arrange
+        using var context = _fixture.CreateContext();
+        var cache = _fixture.CreateCache();
+        var products = TestFixture.CreateProducts(50);
+        await context.Products.AddRangeAsync(products);
+        await context.SaveChangesAsync();
+
+        var controller = CreateController(context, cache: cache);
+
+        // Act - First call populates cache
+        var result1 = await controller.GetPaged(pageNumber: 1, pageSize: 10);
+
+        // Add more products directly to database
+        await context.Products.AddAsync(TestFixture.CreateProduct(100, "New Product"));
+        await context.SaveChangesAsync();
+
+        // Second call should return cached value
+        var result2 = await controller.GetPaged(pageNumber: 1, pageSize: 10);
+
+        // Assert - Total count should still be 50 (cached)
+        var okResult2 = result2.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var pagedResult = okResult2.Value.Should().BeOfType<PagedResponse<ProductDto>>().Subject;
+        pagedResult.TotalCount.Should().Be(50); // Cached value
+    }
+
+    #endregion
 }
