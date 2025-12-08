@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
-import {
-  WeatherForecast as WeatherForecastType,
-  WeatherForecastClient,
-} from "../api/api-client";
+import { ApiClient } from "../api/api-client";
+import type { WeatherForecast as WeatherForecastDto } from "../api/api-client";
 
-const client = new WeatherForecastClient();
+const client = new ApiClient("http://localhost:5110");
 
 export function WeatherForecast() {
-  const [forecasts, setForecasts] = useState<WeatherForecastType[]>([]);
+  const [forecasts, setForecasts] = useState<WeatherForecastDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
