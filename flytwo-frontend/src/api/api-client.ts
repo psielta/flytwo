@@ -18,6 +18,212 @@ export class ApiClient {
     }
 
     /**
+     * Get all todos
+     * @return OK
+     */
+    todoAll(signal?: AbortSignal): Promise<TodoDto[]> {
+        let url_ = this.baseUrl + "/api/Todo";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTodoAll(_response);
+        });
+    }
+
+    protected processTodoAll(response: Response): Promise<TodoDto[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TodoDto[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TodoDto[]>(null as any);
+    }
+
+    /**
+     * Create a new todo
+     * @param body (optional) 
+     * @return OK
+     */
+    todoPOST(body?: CreateTodoRequest | undefined, signal?: AbortSignal): Promise<TodoDto> {
+        let url_ = this.baseUrl + "/api/Todo";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTodoPOST(_response);
+        });
+    }
+
+    protected processTodoPOST(response: Response): Promise<TodoDto> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TodoDto;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TodoDto>(null as any);
+    }
+
+    /**
+     * Get todo by id
+     * @return OK
+     */
+    todoGET(id: number, signal?: AbortSignal): Promise<TodoDto> {
+        let url_ = this.baseUrl + "/api/Todo/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTodoGET(_response);
+        });
+    }
+
+    protected processTodoGET(response: Response): Promise<TodoDto> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TodoDto;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TodoDto>(null as any);
+    }
+
+    /**
+     * Update an existing todo
+     * @param body (optional) 
+     * @return OK
+     */
+    todoPUT(id: number, body?: UpdateTodoRequest | undefined, signal?: AbortSignal): Promise<TodoDto> {
+        let url_ = this.baseUrl + "/api/Todo/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTodoPUT(_response);
+        });
+    }
+
+    protected processTodoPUT(response: Response): Promise<TodoDto> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TodoDto;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TodoDto>(null as any);
+    }
+
+    /**
+     * Delete a todo
+     * @return OK
+     */
+    todoDELETE(id: number, signal?: AbortSignal): Promise<void> {
+        let url_ = this.baseUrl + "/api/Todo/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            signal,
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTodoDELETE(_response);
+        });
+    }
+
+    protected processTodoDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
      * @return OK
      */
     getWeatherForecast(signal?: AbortSignal): Promise<WeatherForecast[]> {
@@ -53,6 +259,26 @@ export class ApiClient {
         }
         return Promise.resolve<WeatherForecast[]>(null as any);
     }
+}
+
+export interface CreateTodoRequest {
+    title?: string | undefined;
+    description?: string | undefined;
+}
+
+export interface TodoDto {
+    id?: number;
+    title?: string | undefined;
+    description?: string | undefined;
+    isCompleted?: boolean;
+    createdAt?: string;
+    updatedAt?: string | undefined;
+}
+
+export interface UpdateTodoRequest {
+    title?: string | undefined;
+    description?: string | undefined;
+    isCompleted?: boolean;
 }
 
 export interface WeatherForecast {

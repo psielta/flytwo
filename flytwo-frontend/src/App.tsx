@@ -1,7 +1,7 @@
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import { WeatherForecast } from './components/WeatherForecast'
+import { TodoList } from './components/TodoList'
 
 function App() {
   return (
@@ -15,7 +15,7 @@ function App() {
         </a>
       </div>
       <h1>FlyTwo</h1>
-      <WeatherForecast />
+      <TodoList />
     </>
   )
 }
