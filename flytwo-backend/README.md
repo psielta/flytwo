@@ -202,3 +202,164 @@ policy.WithOrigins("http://localhost:5173")
       .AllowAnyHeader()
       .AllowAnyMethod();
 ```
+
+## Testes Unitários
+
+### Stack de Testes
+
+| Categoria | Pacote | Versão | Finalidade |
+|-----------|--------|--------|------------|
+| **Framework** | xUnit | 2.9.2 | Test framework |
+| **Runner** | xunit.runner.visualstudio | 2.8.2 | VS Test adapter |
+| **SDK** | Microsoft.NET.Test.Sdk | 17.11.1 | .NET test SDK |
+| **Mocking** | Moq | 4.20.72 | Mock objects |
+| **Assertions** | FluentAssertions | 6.12.2 | Fluent assertion library |
+| **Database** | Microsoft.EntityFrameworkCore.InMemory | 8.0.11 | In-memory EF Core provider |
+| **Coverage** | coverlet.collector | 6.0.2 | Code coverage |
+
+### Estrutura do Projeto de Testes
+
+```
+WebApplicationFlytwo.Tests/
+├── Controllers/
+│   └── TodoControllerTests.cs      # 16 testes
+├── Validators/
+│   ├── CreateTodoValidatorTests.cs # 10 testes
+│   └── UpdateTodoValidatorTests.cs # 12 testes
+├── Mappings/
+│   └── TodoProfileTests.cs         # 8 testes
+├── Fixtures/
+│   └── TestFixture.cs              # Test utilities
+└── WebApplicationFlytwo.Tests.csproj
+```
+
+### Padrão de Testes
+
+Todos os testes seguem o padrão **AAA (Arrange-Act-Assert)**:
+
+```csharp
+[Fact]
+public async Task GetById_WithValidId_ReturnsTodo()
+{
+    // Arrange
+    using var context = _fixture.CreateContext();
+    var mapper = _fixture.CreateMapper();
+    var logger = _fixture.CreateLogger<TodoController>();
+
+    var todo = new Todo { Id = 1, Title = "Test Todo", CreatedAt = DateTime.UtcNow };
+    context.Todos.Add(todo);
+    await context.SaveChangesAsync();
+
+    var controller = new TodoController(context, mapper, logger.Object);
+
+    // Act
+    var result = await controller.GetById(1);
+
+    // Assert
+    result.Result.Should().BeOfType<OkObjectResult>();
+    var okResult = result.Result as OkObjectResult;
+    var returnedTodo = okResult!.Value as TodoDto;
+    returnedTodo!.Id.Should().Be(1);
+}
+```
+
+### Convenção de Nomenclatura
+
+```
+{Método}_{Cenário}_{ResultadoEsperado}
+```
+
+**Exemplos:**
+- `GetById_WithValidId_ReturnsTodo`
+- `GetById_WithInvalidId_ReturnsNotFound`
+- `Create_WithValidRequest_ReturnsCreatedTodo`
+- `Validate_WithEmptyTitle_ShouldHaveError`
+
+### Test Fixture
+
+A classe `TestFixture` fornece utilitários compartilhados:
+
+```csharp
+public class TestFixture : IDisposable
+{
+    // Cria DbContext com InMemory database (isolado por GUID)
+    public AppDbContext CreateContext();
+
+    // Cria IMapper configurado com TodoProfile
+    public IMapper CreateMapper();
+
+    // Cria Mock<ILogger<T>>
+    public Mock<ILogger<T>> CreateLogger<T>();
+
+    // Factory methods para entidades de teste
+    public static Todo CreateTodo(int id = 1, string title = "Test Todo", ...);
+    public static List<Todo> CreateTodos(int count);
+}
+```
+
+### Cobertura de Testes
+
+#### TodoController (16 testes)
+
+| Método | Cenários Testados |
+|--------|-------------------|
+| `GetAll` | Retorna todos ordenados, lista vazia |
+| `GetById` | ID válido, ID inválido (404) |
+| `Create` | Request válido, seta CreatedAt, seta IsCompleted=false, persiste no DB, location header |
+| `Update` | Request válido, seta UpdatedAt, preserva CreatedAt, ID inválido (404), persiste no DB |
+| `Delete` | ID válido (204), ID inválido (404), remove do DB, não afeta outros registros |
+
+#### CreateTodoValidator (10 testes)
+
+| Campo | Cenários Testados |
+|-------|-------------------|
+| `Title` | Válido, vazio, null, whitespace, >200 chars, exatamente 200 chars |
+| `Description` | null (ok), vazio (ok), >1000 chars, exatamente 1000 chars |
+
+#### UpdateTodoValidator (12 testes)
+
+| Campo | Cenários Testados |
+|-------|-------------------|
+| `Title` | Válido, vazio, null, whitespace, >200 chars, exatamente 200 chars |
+| `Description` | null (ok), vazio (ok), >1000 chars, exatamente 1000 chars |
+| `IsCompleted` | true, false |
+
+#### TodoProfile (8 testes)
+
+| Mapeamento | Cenários Testados |
+|------------|-------------------|
+| `Todo → TodoDto` | Todas propriedades, null description |
+| `CreateTodoRequest → Todo` | Propriedades mapeadas, null description |
+| `UpdateTodoRequest → Todo` | Propriedades mapeadas, null description |
+| `IEnumerable<Todo>` | Coleção de entidades |
+
+### CLI Commands
+
+```bash
+# Executar todos os testes
+dotnet test
+
+# Executar com output detalhado
+dotnet test --verbosity normal
+
+# Executar testes específicos (por filtro)
+dotnet test --filter "FullyQualifiedName~TodoControllerTests"
+dotnet test --filter "FullyQualifiedName~ValidatorTests"
+
+# Executar com cobertura de código
+dotnet test --collect:"XPlat Code Coverage"
+
+# Gerar relatório de cobertura (requer reportgenerator)
+dotnet tool install -g dotnet-reportgenerator-globaltool
+reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Html
+```
+
+### Boas Práticas Implementadas
+
+1. **Isolamento**: Cada teste usa InMemory database com GUID único
+2. **AAA Pattern**: Estrutura clara Arrange-Act-Assert
+3. **Nomenclatura descritiva**: Nome do teste descreve cenário e resultado
+4. **FluentAssertions**: Assertions legíveis e expressivas
+5. **IClassFixture**: Compartilhamento eficiente de recursos
+6. **Testes de borda**: Validação de limites (200/1000 chars)
+7. **Testes negativos**: Cobertura de cenários de erro (404, validation errors)
