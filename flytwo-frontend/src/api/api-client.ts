@@ -18,6 +18,283 @@ export class ApiClient {
     }
 
     /**
+     * Get all products (cached)
+     * @return OK
+     */
+    productAll(signal?: AbortSignal): Promise<ProductDto[]> {
+        let url_ = this.baseUrl + "/api/Product";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processProductAll(_response);
+        });
+    }
+
+    protected processProductAll(response: Response): Promise<ProductDto[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDto[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDto[]>(null as any);
+    }
+
+    /**
+     * Create a new product
+     * @param body (optional) 
+     * @return Created
+     */
+    productPOST(body?: CreateProductRequest | undefined, signal?: AbortSignal): Promise<ProductDto> {
+        let url_ = this.baseUrl + "/api/Product";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processProductPOST(_response);
+        });
+    }
+
+    protected processProductPOST(response: Response): Promise<ProductDto> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDto;
+            return result201;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDto>(null as any);
+    }
+
+    /**
+     * Get product by id (cached)
+     * @return OK
+     */
+    productGET(id: number, signal?: AbortSignal): Promise<ProductDto> {
+        let url_ = this.baseUrl + "/api/Product/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processProductGET(_response);
+        });
+    }
+
+    protected processProductGET(response: Response): Promise<ProductDto> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDto;
+            return result200;
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDto>(null as any);
+    }
+
+    /**
+     * Update an existing product
+     * @param body (optional) 
+     * @return OK
+     */
+    productPUT(id: number, body?: UpdateProductRequest | undefined, signal?: AbortSignal): Promise<ProductDto> {
+        let url_ = this.baseUrl + "/api/Product/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processProductPUT(_response);
+        });
+    }
+
+    protected processProductPUT(response: Response): Promise<ProductDto> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDto;
+            return result200;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDto>(null as any);
+    }
+
+    /**
+     * Delete a product
+     * @return No Content
+     */
+    productDELETE(id: number, signal?: AbortSignal): Promise<void> {
+        let url_ = this.baseUrl + "/api/Product/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            signal,
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processProductDELETE(_response);
+        });
+    }
+
+    protected processProductDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * Get products by category (cached)
+     * @return OK
+     */
+    category(category: string, signal?: AbortSignal): Promise<ProductDto[]> {
+        let url_ = this.baseUrl + "/api/Product/category/{category}";
+        if (category === undefined || category === null)
+            throw new globalThis.Error("The parameter 'category' must be defined.");
+        url_ = url_.replace("{category}", encodeURIComponent("" + category));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCategory(_response);
+        });
+    }
+
+    protected processCategory(response: Response): Promise<ProductDto[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProductDto[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ProductDto[]>(null as any);
+    }
+
+    /**
      * Get all todos
      * @return OK
      */
@@ -291,6 +568,15 @@ export class ApiClient {
     }
 }
 
+export interface CreateProductRequest {
+    name?: string | undefined;
+    description?: string | undefined;
+    category?: string | undefined;
+    price?: number;
+    stockQuantity?: number;
+    sku?: string | undefined;
+}
+
 export interface CreateTodoRequest {
     title?: string | undefined;
     description?: string | undefined;
@@ -306,6 +592,19 @@ export interface ProblemDetails {
     [key: string]: any;
 }
 
+export interface ProductDto {
+    id?: number;
+    name?: string | undefined;
+    description?: string | undefined;
+    category?: string | undefined;
+    price?: number;
+    stockQuantity?: number;
+    sku?: string | undefined;
+    isActive?: boolean;
+    createdAt?: string;
+    updatedAt?: string | undefined;
+}
+
 export interface TodoDto {
     id?: number;
     title?: string | undefined;
@@ -313,6 +612,15 @@ export interface TodoDto {
     isCompleted?: boolean;
     createdAt?: string;
     updatedAt?: string | undefined;
+}
+
+export interface UpdateProductRequest {
+    name?: string | undefined;
+    description?: string | undefined;
+    category?: string | undefined;
+    price?: number;
+    stockQuantity?: number;
+    isActive?: boolean;
 }
 
 export interface UpdateTodoRequest {

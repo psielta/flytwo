@@ -1,18 +1,62 @@
 import { useEffect, useState } from "react";
+import { Formik, Form } from "formik";
+import * as Yup from "yup";
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Checkbox,
+  Paper,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+  Chip
+} from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { ApiClient } from "../api/api-client";
 import type { TodoDto, CreateTodoRequest, UpdateTodoRequest } from "../api/api-client";
 
 const client = new ApiClient("http://localhost:5110");
 
+const TodoSchema = Yup.object().shape({
+  title: Yup.string()
+    .min(2, "Title must be at least 2 characters")
+    .max(200, "Title must be at most 200 characters")
+    .required("Title is required"),
+  description: Yup.string()
+    .max(1000, "Description must be at most 1000 characters")
+    .nullable(),
+});
+
+interface TodoFormValues {
+  title: string;
+  description: string;
+}
+
+const initialFormValues: TodoFormValues = {
+  title: "",
+  description: "",
+};
+
 export function TodoList() {
   const [todos, setTodos] = useState<TodoDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newTitle, setNewTitle] = useState("");
-  const [newDescription, setNewDescription] = useState("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<TodoDto | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [todoToDelete, setTodoToDelete] = useState<TodoDto | null>(null);
 
   const fetchTodos = async (signal?: AbortSignal) => {
     try {
@@ -34,21 +78,28 @@ export function TodoList() {
     return () => controller.abort();
   }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-
+  const handleSubmit = async (values: TodoFormValues, { resetForm }: { resetForm: () => void }) => {
     try {
-      const request: CreateTodoRequest = {
-        title: newTitle,
-        description: newDescription || undefined,
-      };
-      await client.todoPOST(request);
-      setNewTitle("");
-      setNewDescription("");
+      if (editingTodo) {
+        const request: UpdateTodoRequest = {
+          title: values.title,
+          description: values.description || undefined,
+          isCompleted: editingTodo.isCompleted,
+        };
+        await client.todoPUT(editingTodo.id!, request);
+      } else {
+        const request: CreateTodoRequest = {
+          title: values.title,
+          description: values.description || undefined,
+        };
+        await client.todoPOST(request);
+      }
+      resetForm();
+      setDialogOpen(false);
+      setEditingTodo(null);
       fetchTodos();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create todo");
+      setError(err instanceof Error ? err.message : "Failed to save todo");
     }
   };
 
@@ -66,9 +117,12 @@ export function TodoList() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async () => {
+    if (!todoToDelete) return;
     try {
-      await client.todoDELETE(id);
+      await client.todoDELETE(todoToDelete.id!);
+      setDeleteConfirmOpen(false);
+      setTodoToDelete(null);
       fetchTodos();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete todo");
@@ -76,121 +130,179 @@ export function TodoList() {
   };
 
   const startEditing = (todo: TodoDto) => {
-    setEditingId(todo.id!);
-    setEditTitle(todo.title || "");
-    setEditDescription(todo.description || "");
+    setEditingTodo(todo);
+    setDialogOpen(true);
   };
 
-  const handleUpdate = async (id: number) => {
-    try {
-      const todo = todos.find((t) => t.id === id);
-      const request: UpdateTodoRequest = {
-        title: editTitle,
-        description: editDescription || undefined,
-        isCompleted: todo?.isCompleted || false,
-      };
-      await client.todoPUT(id, request);
-      setEditingId(null);
-      fetchTodos();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update todo");
-    }
+  const openNewTodoDialog = () => {
+    setEditingTodo(null);
+    setDialogOpen(true);
   };
 
-  if (loading && todos.length === 0) {
-    return <div>Loading todos...</div>;
-  }
+  const completedCount = todos.filter(t => t.isCompleted).length;
+  const pendingCount = todos.length - completedCount;
 
   return (
-    <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-      <h2>Todo List</h2>
-
-      {error && <div style={{ color: "red", marginBottom: "1rem" }}>Error: {error}</div>}
-
-      <form onSubmit={handleCreate} style={{ marginBottom: "1.5rem" }}>
-        <div style={{ marginBottom: "0.5rem" }}>
-          <input
-            type="text"
-            placeholder="Title"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            style={{ width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-        <div style={{ marginBottom: "0.5rem" }}>
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            value={newDescription}
-            onChange={(e) => setNewDescription(e.target.value)}
-            style={{ width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-        <button type="submit" style={{ padding: "0.5rem 1rem" }}>
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Box>
+          <Typography variant="h4" component="h1">
+            Todo List
+          </Typography>
+          <Box sx={{ mt: 1, display: "flex", gap: 1 }}>
+            <Chip label={`${pendingCount} pending`} color="warning" size="small" />
+            <Chip label={`${completedCount} completed`} color="success" size="small" />
+          </Box>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={openNewTodoDialog}
+        >
           Add Todo
-        </button>
-      </form>
+        </Button>
+      </Box>
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {todos.map((todo) => (
-          <li
-            key={todo.id}
-            style={{
-              padding: "1rem",
-              marginBottom: "0.5rem",
-              backgroundColor: todo.isCompleted ? "#e8f5e9" : "#fff",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-            }}
-          >
-            {editingId === todo.id ? (
-              <div>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  style={{ width: "100%", marginBottom: "0.5rem", padding: "0.25rem" }}
-                />
-                <input
-                  type="text"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  style={{ width: "100%", marginBottom: "0.5rem", padding: "0.25rem" }}
-                />
-                <button onClick={() => handleUpdate(todo.id!)} style={{ marginRight: "0.5rem" }}>
-                  Save
-                </button>
-                <button onClick={() => setEditingId(null)}>Cancel</button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <input
-                    type="checkbox"
+      {error && (
+        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {loading && todos.length === 0 ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : todos.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: "center" }}>
+          <Typography color="text.secondary">
+            No todos yet. Add one above!
+          </Typography>
+        </Paper>
+      ) : (
+        <Paper>
+          <List>
+            {todos.map((todo, index) => (
+              <ListItem
+                key={todo.id}
+                divider={index < todos.length - 1}
+                sx={{
+                  backgroundColor: todo.isCompleted ? "action.hover" : "inherit",
+                }}
+                secondaryAction={
+                  <Box>
+                    <IconButton size="small" onClick={() => startEditing(todo)} color="primary">
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setTodoToDelete(todo);
+                        setDeleteConfirmOpen(true);
+                      }}
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                }
+              >
+                <ListItemIcon>
+                  <Checkbox
+                    edge="start"
                     checked={todo.isCompleted}
                     onChange={() => handleToggleComplete(todo)}
-                    style={{ marginRight: "0.5rem" }}
+                    color="primary"
                   />
-                  <span style={{ textDecoration: todo.isCompleted ? "line-through" : "none" }}>
-                    <strong>{todo.title}</strong>
-                    {todo.description && <span style={{ color: "#666" }}> - {todo.description}</span>}
-                  </span>
-                </div>
-                <div>
-                  <button onClick={() => startEditing(todo)} style={{ marginRight: "0.5rem" }}>
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(todo.id!)} style={{ color: "red" }}>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography
+                      sx={{
+                        textDecoration: todo.isCompleted ? "line-through" : "none",
+                        color: todo.isCompleted ? "text.secondary" : "text.primary",
+                      }}
+                    >
+                      {todo.title}
+                    </Typography>
+                  }
+                  secondary={todo.description}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
+      )}
 
-      {todos.length === 0 && !loading && <p>No todos yet. Add one above!</p>}
-    </div>
+      {/* Todo Form Dialog */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingTodo ? "Edit Todo" : "New Todo"}</DialogTitle>
+        <Formik
+          initialValues={
+            editingTodo
+              ? { title: editingTodo.title || "", description: editingTodo.description || "" }
+              : initialFormValues
+          }
+          validationSchema={TodoSchema}
+          onSubmit={handleSubmit}
+          enableReinitialize
+        >
+          {({ values, errors, touched, handleChange, handleBlur, isSubmitting }) => (
+            <Form>
+              <DialogContent>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    name="title"
+                    label="Title"
+                    value={values.title}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.title && Boolean(errors.title)}
+                    helperText={touched.title && errors.title}
+                    autoFocus
+                  />
+                  <TextField
+                    fullWidth
+                    name="description"
+                    label="Description (optional)"
+                    multiline
+                    rows={3}
+                    value={values.description}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.description && Boolean(errors.description)}
+                    helperText={touched.description && errors.description}
+                  />
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" variant="contained" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : editingTodo ? "Update" : "Create"}
+                </Button>
+              </DialogActions>
+            </Form>
+          )}
+        </Formik>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete "{todoToDelete?.title}"?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
