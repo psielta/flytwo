@@ -25,6 +25,7 @@ public class TodoController : ControllerBase
 
     [HttpGet]
     [SwaggerOperation(Summary = "Get all todos")]
+    [ProducesResponseType(typeof(IEnumerable<TodoDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<TodoDto>>> GetAll()
     {
         _logger.LogInformation("Getting all todos");
@@ -34,6 +35,8 @@ public class TodoController : ControllerBase
 
     [HttpGet("{id}")]
     [SwaggerOperation(Summary = "Get todo by id")]
+    [ProducesResponseType(typeof(TodoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TodoDto>> GetById(int id)
     {
         _logger.LogInformation("Getting todo with id {Id}", id);
@@ -50,6 +53,8 @@ public class TodoController : ControllerBase
 
     [HttpPost]
     [SwaggerOperation(Summary = "Create a new todo")]
+    [ProducesResponseType(typeof(TodoDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<TodoDto>> Create([FromBody] CreateTodoRequest request)
     {
         _logger.LogInformation("Creating new todo with title: {Title}", request.Title);
@@ -66,6 +71,9 @@ public class TodoController : ControllerBase
 
     [HttpPut("{id}")]
     [SwaggerOperation(Summary = "Update an existing todo")]
+    [ProducesResponseType(typeof(TodoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TodoDto>> Update(int id, [FromBody] UpdateTodoRequest request)
     {
         _logger.LogInformation("Updating todo with id {Id}", id);
@@ -91,6 +99,8 @@ public class TodoController : ControllerBase
 
     [HttpDelete("{id}")]
     [SwaggerOperation(Summary = "Delete a todo")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
         _logger.LogInformation("Deleting todo with id {Id}", id);

@@ -139,13 +139,30 @@ docker-compose down -v    # Parar e remover volumes
 
 ### Todo Controller
 
-| Method | Route | Request Body | Response | Description |
-|--------|-------|--------------|----------|-------------|
-| GET | `/api/todo` | - | `TodoDto[]` | List all |
-| GET | `/api/todo/{id}` | - | `TodoDto` | Get by ID |
-| POST | `/api/todo` | `CreateTodoRequest` | `TodoDto` | Create |
-| PUT | `/api/todo/{id}` | `UpdateTodoRequest` | `TodoDto` | Update |
-| DELETE | `/api/todo/{id}` | - | `204 No Content` | Delete |
+| Method | Route | Request Body | Success | Error | Description |
+|--------|-------|--------------|---------|-------|-------------|
+| GET | `/api/todo` | - | `200 OK` | - | List all |
+| GET | `/api/todo/{id}` | - | `200 OK` | `404 Not Found` | Get by ID |
+| POST | `/api/todo` | `CreateTodoRequest` | `201 Created` | `400 Bad Request` | Create |
+| PUT | `/api/todo/{id}` | `UpdateTodoRequest` | `200 OK` | `400 Bad Request`, `404 Not Found` | Update |
+| DELETE | `/api/todo/{id}` | - | `204 No Content` | `404 Not Found` | Delete |
+
+### OpenAPI Documentation
+
+Cada endpoint é documentado com `[ProducesResponseType]` para geração correta do cliente NSwag:
+
+```csharp
+[HttpPost]
+[SwaggerOperation(Summary = "Create a new todo")]
+[ProducesResponseType(typeof(TodoDto), StatusCodes.Status201Created)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+public async Task<ActionResult<TodoDto>> Create([FromBody] CreateTodoRequest request)
+```
+
+**Anotações utilizadas:**
+- `[SwaggerOperation]` - Summary/description do endpoint
+- `[ProducesResponseType]` - Documenta status codes e tipos de retorno
+- `[FromBody]` - Indica que o parâmetro vem do body da request
 
 ### DTOs
 
