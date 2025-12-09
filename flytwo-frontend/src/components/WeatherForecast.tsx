@@ -1,4 +1,18 @@
 import { useEffect, useState } from "react";
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
+  Alert,
+  Chip
+} from "@mui/material";
 import { ApiClient } from "../api/api-client";
 import type { WeatherForecast as WeatherForecastDto } from "../api/api-client";
 
@@ -34,49 +48,52 @@ export function WeatherForecast() {
   }, []);
 
   if (loading) {
-    return <div>Loading weather forecast...</div>;
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   if (error) {
-    return <div style={{ color: "red" }}>Error: {error}</div>;
+    return (
+      <Alert severity="error" sx={{ mb: 2 }}>
+        {error}
+      </Alert>
+    );
   }
 
   return (
-    <div>
-      <h2>Weather Forecast</h2>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Date</th>
-            <th style={thStyle}>Temp (C)</th>
-            <th style={thStyle}>Temp (F)</th>
-            <th style={thStyle}>Summary</th>
-          </tr>
-        </thead>
-        <tbody>
-          {forecasts.map((forecast, index) => (
-            <tr key={index}>
-              <td style={tdStyle}>{forecast.date}</td>
-              <td style={tdStyle}>{forecast.temperatureC}</td>
-              <td style={tdStyle}>{forecast.temperatureF}</td>
-              <td style={tdStyle}>{forecast.summary}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Box>
+      <Typography variant="h4" component="h1" sx={{ mb: 3 }}>
+        Weather Forecast
+      </Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Date</TableCell>
+              <TableCell align="right">Temp (C)</TableCell>
+              <TableCell align="right">Temp (F)</TableCell>
+              <TableCell>Summary</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {forecasts.map((forecast, index) => (
+              <TableRow key={index} hover>
+                <TableCell>{forecast.date}</TableCell>
+                <TableCell align="right">
+                  <Chip label={`${forecast.temperatureC}°C`} size="small" color="primary" variant="outlined" />
+                </TableCell>
+                <TableCell align="right">
+                  <Chip label={`${forecast.temperatureF}°F`} size="small" color="secondary" variant="outlined" />
+                </TableCell>
+                <TableCell>{forecast.summary}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  border: "1px solid #ddd",
-  padding: "8px",
-  textAlign: "left",
-  backgroundColor: "#4CAF50",
-  color: "white",
-};
-
-const tdStyle: React.CSSProperties = {
-  border: "1px solid #ddd",
-  padding: "8px",
-};

@@ -1,24 +1,24 @@
-import { useState, useMemo } from 'react'
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Container,
-  Button,
-  Box,
-  CssBaseline,
-  ThemeProvider,
-  createTheme,
-  IconButton,
-  Tooltip
-} from '@mui/material'
-import ListAltIcon from '@mui/icons-material/ListAlt'
-import InventoryIcon from '@mui/icons-material/Inventory'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
-import { TodoList } from './components/TodoList'
+import InventoryIcon from '@mui/icons-material/Inventory'
+import ListAltIcon from '@mui/icons-material/ListAlt'
+import {
+  AppBar,
+  Box,
+  Button,
+  Container,
+  createTheme,
+  CssBaseline,
+  IconButton,
+  ThemeProvider,
+  Toolbar,
+  Tooltip,
+  Typography
+} from '@mui/material'
+import { useMemo, useState } from 'react'
+import { Link, Route, Routes, useLocation } from 'react-router-dom'
 import { ProductList } from './components/ProductList'
+import { TodoList } from './components/TodoList'
 
 function App() {
   const location = useLocation()
@@ -32,12 +32,6 @@ function App() {
       createTheme({
         palette: {
           mode,
-          primary: {
-            main: '#1976d2',
-          },
-          secondary: {
-            main: '#dc004e',
-          },
         },
       }),
     [mode]
@@ -66,7 +60,10 @@ function App() {
               to="/"
               startIcon={<ListAltIcon />}
               sx={{
-                backgroundColor: location.pathname === '/' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                backgroundColor: location.pathname === '/' ? 'action.selected' : 'transparent',
+                '&:hover': {
+                  backgroundColor: location.pathname === '/' ? 'action.selected' : 'action.hover',
+                },
                 mr: 1
               }}
             >
@@ -78,7 +75,10 @@ function App() {
               to="/products"
               startIcon={<InventoryIcon />}
               sx={{
-                backgroundColor: location.pathname === '/products' ? 'rgba(255,255,255,0.15)' : 'transparent'
+                backgroundColor: location.pathname === '/products' ? 'action.selected' : 'transparent',
+                '&:hover': {
+                  backgroundColor: location.pathname === '/products' ? 'action.selected' : 'action.hover',
+                }
               }}
             >
               Products
@@ -98,7 +98,7 @@ function App() {
           </Routes>
         </Container>
 
-        <Box component="footer" sx={{ py: 2, px: 2, mt: 'auto', backgroundColor: mode === 'light' ? '#f5f5f5' : '#121212' }}>
+        <Box component="footer" sx={{ py: 2, px: 2, mt: 'auto', backgroundColor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
           <Container maxWidth="lg">
             <Typography variant="body2" color="text.secondary" align="center">
               FlyTwo - React + Vite + MUI + ASP.NET Core
