@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
@@ -8,6 +9,7 @@ using WebApplicationFlytwo.Entities;
 
 namespace WebApplicationFlytwo.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class TodoController : ControllerBase
@@ -24,6 +26,7 @@ public class TodoController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get all todos")]
     [ProducesResponseType(typeof(IEnumerable<TodoDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<TodoDto>>> GetAll()
@@ -34,6 +37,7 @@ public class TodoController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get todo by id")]
     [ProducesResponseType(typeof(TodoDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

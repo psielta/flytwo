@@ -22,6 +22,9 @@ ASP.NET Core 8.0 Web API com arquitetura em camadas.
 | **Cache** | ZiggyCreatures.FusionCache | 2.4.0 | Hybrid cache (L1 Memory + L2 Redis) |
 | **Cache** | ZiggyCreatures.FusionCache.Serialization.NewtonsoftJson | 2.4.0 | JSON serialization para cache |
 | **Cache** | Microsoft.Extensions.Caching.StackExchangeRedis | 8.0.11 | Redis distributed cache provider |
+| **Auth** | Microsoft.AspNetCore.Identity.EntityFrameworkCore | 8.0.11 | Identity + EF Core (PostgreSQL) |
+| **Auth** | Microsoft.AspNetCore.Authentication.JwtBearer | 8.0.11 | JWT bearer authentication |
+| **Email** | System.Net.Mail (built-in) | - | SMTP via MailHog para reset de senha |
 
 ## Arquitetura
 
@@ -91,6 +94,58 @@ builder.Services.AddFusionCache()
     })
     .WithSerializer(new FusionCacheNewtonsoftJsonSerializer())
     .AsHybridCache();
+```
+
+## AutenticaA735o (Identity + JWT)
+
+- Identity com EF Core + PostgreSQL para gestA£o de usuA¡rios/roles.
+- JWT Bearer para autenticaA735o stateless em APIs.
+- Seeds automA¡ticos: cria role **Admin** e usuA¡rio `admin@flytwo.local` com senha `Admin123!` (configurA¡vel via `SeedAdmin` no *appsettings*).
+- Swagger jA¡ configurado com esquema Bearer (cadeado no canto superior direito).
+
+```json
+// appsettings.json
+"Jwt": {
+  "Key": "ChangeThisKey-InProduction-UseVault-1234567890",
+  "Issuer": "FlyTwo.Api",
+  "Audience": "FlyTwo.Api.Client",
+  "ExpiryMinutes": 60
+},
+"SeedAdmin": {
+  "Email": "admin@flytwo.local",
+  "Password": "Admin123!"
+},
+"Smtp": {
+  "Host": "localhost",
+  "Port": 1025,
+  "EnableSsl": false,
+  "User": "",
+  "Password": "",
+  "From": "no-reply@flytwo.local"
+},
+"Frontend": {
+  "ResetPasswordUrl": "http://localhost:5173/reset-password"
+}
+```
+
+```csharp
+// Identity + JWT (resumo)
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+builder.Services.AddAuthorization();
 ```
 
 ## Database
@@ -176,10 +231,35 @@ docker-compose down -v    # Parar e remover volumes
 # Verificar Redis
 docker exec -it flytwo-redis redis-cli ping
 docker exec -it flytwo-redis redis-cli keys "FlyTwo:*"
+
+# MailHog (SMTP de desenvolvimento)
+docker exec -it flytwo-mailhog sh    # opcional
+UI: http://localhost:8025 (SMTP em 1025)
 ```
 
 ## API Endpoints
 
+### Auth Controller
+
+| Method | Route | Request Body | Success | Error | Description |
+|--------|-------|--------------|---------|-------|-------------|
+| POST | /api/auth/register | RegisterRequest | 201 Created (token) | 400 Bad Request, 409 Conflict | Cria usuario e retorna JWT |
+| POST | /api/auth/login | LoginRequest | 200 OK (token) | 401 Unauthorized | Autentica e retorna JWT |
+| GET | /api/auth/me | - | 200 OK | 401 Unauthorized | Dados do usuario autenticado |
+| POST | /api/auth/forgot-password | ForgotPasswordRequest | 200 OK | 404* | Gera token e envia por email (responde 200 mesmo se user nao existir) |
+| POST | /api/auth/reset-password | ResetPasswordRequest | 204 No Content | 400 Bad Request | Reseta senha com token recebido |
+
+**Models**
+- RegisterRequest: { "email": string, "password": string, "confirmPassword": string, "fullName": string? }
+- LoginRequest: { "email": string, "password": string }
+- AuthResponse: { "accessToken": string, "expiresAt": DateTime, "email": string, "fullName": string?, "roles": string[], "tokenType": "Bearer" }
+- ForgotPasswordRequest: { "email": string }
+- ResetPasswordRequest: { "email": string, "token": string, "newPassword": string, "confirmPassword": string }
+
+**Politica de acesso**
+- POST/PUT/DELETE dos controllers Todo e Product exigem Authorization: Bearer {token}.
+- Endpoints GET permanecem publicos.
+- Use o cadeado do Swagger UI para testar autenticado.
 ### Todo Controller
 
 | Method | Route | Request Body | Success | Error | Description |

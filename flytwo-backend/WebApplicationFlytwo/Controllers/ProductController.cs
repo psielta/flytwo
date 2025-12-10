@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
@@ -9,6 +10,7 @@ using ZiggyCreatures.Caching.Fusion;
 
 namespace WebApplicationFlytwo.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ProductController : ControllerBase
@@ -39,6 +41,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get all products (cached)")]
     [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
@@ -61,6 +64,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("paged")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get products with pagination (cached)")]
     [ProducesResponseType(typeof(PagedResponse<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResponse<ProductDto>>> GetPaged(
@@ -106,6 +110,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get product by id (cached)")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -132,6 +137,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("category/{category}")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get products by category (cached)")]
     [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetByCategory(string category)
@@ -155,6 +161,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("category/{category}/paged")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Get products by category with pagination (cached)")]
     [ProducesResponseType(typeof(PagedResponse<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResponse<ProductDto>>> GetByCategoryPaged(

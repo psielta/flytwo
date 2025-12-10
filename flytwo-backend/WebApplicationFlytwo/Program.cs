@@ -1,11 +1,18 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
 using WebApplicationFlytwo.Data;
+using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Mappings;
+using WebApplicationFlytwo.Services;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Serialization.NewtonsoftJson;
+using System.Text;
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -28,6 +35,9 @@ try
     // Use Serilog
     builder.Host.UseSerilog();
 
+    var jwtSettings = builder.Configuration.GetSection("Jwt");
+    var jwtKey = jwtSettings.GetValue<string>("Key") ?? throw new InvalidOperationException("JWT:Key not configured");
+
     // Add services to the container.
     builder.Services.AddCors(options =>
     {
@@ -42,6 +52,52 @@ try
     // Entity Framework Core + PostgreSQL
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+    // Identity + EF Core
+    builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+        {
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = false;
+            options.Password.RequireUppercase = false;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequiredLength = 6;
+            options.User.RequireUniqueEmail = true;
+        })
+        .AddEntityFrameworkStores<AppDbContext>()
+        .AddDefaultTokenProviders();
+
+    // JWT Authentication
+    builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.RequireHttpsMetadata = false;
+            options.SaveToken = true;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwtSettings.GetValue<string>("Issuer"),
+                ValidAudience = jwtSettings.GetValue<string>("Audience"),
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ClockSkew = TimeSpan.FromMinutes(1)
+            };
+        });
+
+    builder.Services.AddAuthorization();
+
+    // JWT Token service
+    builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+    // Email (SMTP)
+    builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+    builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
+    builder.Services.AddSingleton<IEmailTemplateRenderer, FileEmailTemplateRenderer>();
 
     // AutoMapper
     builder.Services.AddAutoMapper(typeof(TodoProfile), typeof(ProductProfile));
@@ -63,6 +119,41 @@ try
     builder.Services.AddSwaggerGen(c =>
     {
         c.EnableAnnotations();
+        c.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "FlyTwo API",
+            Version = "v1",
+            Description = "FlyTwo ASP.NET Core 8 Web API"
+        });
+
+        var securityScheme = new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\""
+        };
+
+        // Register definition
+        c.AddSecurityDefinition("Bearer", securityScheme);
+
+        // Apply globally using a reference to the definition
+        c.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
     });
 
     // Redis Distributed Cache
@@ -94,6 +185,13 @@ try
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await context.Database.MigrateAsync();
         await ProductSeeder.SeedAsync(context);
+
+        // Seed default admin user/role
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+        await IdentitySeeder.SeedAsync(userManager, roleManager, configuration, loggerFactory.CreateLogger("IdentitySeeder"));
     }
 
     // Configure the HTTP request pipeline.
@@ -105,6 +203,7 @@ try
 
     app.UseCors("AllowFrontend");
 
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
