@@ -8,6 +8,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.Entities;
+using WebApplicationFlytwo.Filters;
 using WebApplicationFlytwo.Mappings;
 using WebApplicationFlytwo.Services;
 using ZiggyCreatures.Caching.Fusion;
@@ -138,22 +139,8 @@ try
 
         // Register definition
         c.AddSecurityDefinition("Bearer", securityScheme);
-
-        // Apply globally using a reference to the definition
-        c.AddSecurityRequirement(new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                },
-                Array.Empty<string>()
-            }
-        });
+        // Apply per-endpoint (only when [Authorize] and not [AllowAnonymous])
+        c.OperationFilter<AuthOperationFilter>();
     });
 
     // Redis Distributed Cache

@@ -218,6 +218,7 @@ public class ProductController : ControllerBase
     [SwaggerOperation(Summary = "Create a new product")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductRequest request)
     {
         _logger.LogInformation("Creating new product with name: {Name}", request.Name);
@@ -249,6 +250,7 @@ public class ProductController : ControllerBase
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductRequest request)
     {
         _logger.LogInformation("Updating product with id {Id}", id);
@@ -289,6 +291,7 @@ public class ProductController : ControllerBase
     [SwaggerOperation(Summary = "Delete a product")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Delete(int id)
     {
         _logger.LogInformation("Deleting product with id {Id}", id);

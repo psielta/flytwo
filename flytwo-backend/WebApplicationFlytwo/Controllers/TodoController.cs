@@ -59,6 +59,7 @@ public class TodoController : ControllerBase
     [SwaggerOperation(Summary = "Create a new todo")]
     [ProducesResponseType(typeof(TodoDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TodoDto>> Create([FromBody] CreateTodoRequest request)
     {
         _logger.LogInformation("Creating new todo with title: {Title}", request.Title);
@@ -78,6 +79,7 @@ public class TodoController : ControllerBase
     [ProducesResponseType(typeof(TodoDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TodoDto>> Update(int id, [FromBody] UpdateTodoRequest request)
     {
         _logger.LogInformation("Updating todo with id {Id}", id);
@@ -105,6 +107,7 @@ public class TodoController : ControllerBase
     [SwaggerOperation(Summary = "Delete a todo")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Delete(int id)
     {
         _logger.LogInformation("Deleting todo with id {Id}", id);
