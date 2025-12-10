@@ -1,6 +1,6 @@
 # FlyTwo Frontend
 
-React 19 + TypeScript + Vite SPA com Material UI.
+React 19 + TypeScript + Vite SPA com Material UI e autenticacao JWT.
 
 ## Stack Tecnologica
 
@@ -23,35 +23,93 @@ React 19 + TypeScript + Vite SPA com Material UI.
 flytwo-frontend/
 ├── src/
 │   ├── api/
-│   │   └── api-client.ts       # NSwag generated TypeScript client
+│   │   ├── api-client.ts        # NSwag generated TypeScript client
+│   │   └── apiClientFactory.ts  # Factory com injecao de Bearer token
+│   ├── auth/
+│   │   ├── authTypes.ts         # Tipos e contexto de autenticacao
+│   │   ├── authUtils.ts         # Helpers para localStorage (token, user)
+│   │   ├── AuthContext.tsx      # Provider de autenticacao
+│   │   └── useAuth.ts           # Hook para usar auth
 │   ├── components/
-│   │   ├── TodoList.tsx        # Todo CRUD component
-│   │   └── ProductList.tsx     # Product CRUD component
-│   ├── App.tsx                 # Main app with routing & theme
-│   ├── main.tsx                # React entrypoint
-│   └── index.css               # Global reset styles
-├── public/                     # Static assets
-├── index.html                  # HTML template
-├── package.json                # Dependencies & scripts
-├── tsconfig.json               # TypeScript config
-├── vite.config.ts              # Vite config
-└── nswag.json                  # NSwag client generation config
+│   │   ├── TodoList.tsx         # Todo CRUD component
+│   │   ├── ProductList.tsx      # Product CRUD component
+│   │   ├── Sidebar.tsx          # Menu lateral de navegacao
+│   │   ├── ProtectedRoute.tsx   # Guard para rotas autenticadas
+│   │   └── PublicRoute.tsx      # Guard para rotas publicas
+│   ├── layouts/
+│   │   ├── AdminLayout.tsx      # Layout com AppBar + Sidebar
+│   │   └── constants.ts         # Constantes do layout
+│   ├── pages/
+│   │   ├── Login.tsx            # Formulario de login
+│   │   ├── Register.tsx         # Formulario de cadastro
+│   │   ├── ForgotPassword.tsx   # Solicitar reset de senha
+│   │   └── ResetPassword.tsx    # Redefinir senha via link
+│   ├── App.tsx                  # Main app with routing
+│   ├── main.tsx                 # React entrypoint
+│   └── index.css                # Global reset styles
+├── public/                      # Static assets
+├── index.html                   # HTML template
+├── package.json                 # Dependencies & scripts
+├── tsconfig.json                # TypeScript config
+├── vite.config.ts               # Vite config
+└── nswag.json                   # NSwag client generation config
 ```
 
-## Configuracao de Rotas
+## Autenticacao
 
-```tsx
-// App.tsx
-<Routes>
-  <Route path="/" element={<TodoList />} />
-  <Route path="/products" element={<ProductList />} />
-</Routes>
+### Fluxo de Autenticacao
+
+1. Usuario acessa qualquer rota protegida
+2. `ProtectedRoute` verifica se ha token valido no localStorage
+3. Se nao autenticado, redireciona para `/login`
+4. Apos login, token JWT e armazenado no localStorage
+5. `apiClientFactory` injeta Bearer token automaticamente em todas as requisicoes
+
+### Armazenamento
+
+| Chave | Valor |
+|-------|-------|
+| `accessToken` | JWT token |
+| `expiresAt` | Data de expiracao do token |
+| `user` | JSON com email, fullName, roles |
+
+### Rotas
+
+| Rota | Tipo | Componente | Descricao |
+|------|------|------------|-----------|
+| `/login` | Publica | Login | Formulario de login |
+| `/register` | Publica | Register | Formulario de cadastro |
+| `/forgot-password` | Publica | ForgotPassword | Solicitar reset de senha |
+| `/reset-password` | Publica | ResetPassword | Redefinir senha (via link do email) |
+| `/todos` | Protegida | TodoList | Gerenciamento de tarefas |
+| `/products` | Protegida | ProductList | Catalogo de produtos |
+
+### Fluxo de Reset de Senha
+
+1. Usuario acessa `/forgot-password` e digita email
+2. Backend envia email com link: `/reset-password?email=xxx&token=yyy`
+3. Usuario clica no link e define nova senha
+4. Apos sucesso, redireciona para `/login`
+
+## Layout Admin
+
+Rotas protegidas usam o `AdminLayout` com:
+
+```
+┌─────────────────────────────────────────────────┐
+│ AppBar (logo, theme toggle, user menu, logout)  │
+├──────────┬──────────────────────────────────────┤
+│          │                                      │
+│ Sidebar  │  Conteudo da pagina                  │
+│ - Todos  │                                      │
+│ - Products│                                     │
+│          │                                      │
+└──────────┴──────────────────────────────────────┘
 ```
 
-| Rota | Componente | Descricao |
-|------|------------|-----------|
-| `/` | `TodoList` | Gerenciamento de tarefas |
-| `/products` | `ProductList` | Catalogo de produtos |
+- Sidebar responsivo (drawer temporario em mobile)
+- Toggle de tema (light/dark mode) com persistencia
+- Menu do usuario com opcao de logout
 
 ## Material UI Theme
 
@@ -64,17 +122,6 @@ const [mode, setMode] = useState<'light' | 'dark'>(() => {
   const saved = localStorage.getItem('themeMode')
   return (saved === 'dark' || saved === 'light') ? saved : 'light'
 })
-
-const theme = useMemo(
-  () => createTheme({
-    palette: {
-      mode,
-      primary: { main: '#1976d2' },
-      secondary: { main: '#dc004e' },
-    },
-  }),
-  [mode]
-)
 ```
 
 ### Componentes MUI Utilizados
@@ -82,58 +129,44 @@ const theme = useMemo(
 | Componente | Uso |
 |------------|-----|
 | `AppBar` / `Toolbar` | Header com navegacao |
-| `Container` | Layout responsivo (maxWidth="xl") |
+| `Drawer` | Sidebar (permanent/temporary) |
+| `Avatar` / `Menu` | Menu do usuario |
 | `Button` / `IconButton` | Acoes e navegacao |
 | `TextField` / `Select` | Inputs de formulario |
-| `Table` / `TableContainer` | Listagem de produtos |
-| `List` / `ListItem` | Listagem de todos |
+| `DataGrid` | Listagem de produtos com paginacao |
+| `List` / `ListItem` | Listagem de todos e menu sidebar |
 | `Dialog` | Modais de formulario e confirmacao |
 | `Chip` | Tags de status e categoria |
-| `Alert` | Mensagens de erro |
+| `Alert` | Mensagens de erro e sucesso |
 | `CircularProgress` | Loading state |
 | `Checkbox` | Toggle de completude |
 | `Tooltip` | Hints de interface |
 
 ## Formularios com Formik + Yup
 
-### Padrao de Validacao
+### Schemas de Validacao
+
+#### Login
 
 ```tsx
-// Schema de validacao com Yup
-const ProductSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, "Name must be at least 2 characters")
-    .max(200, "Name must be at most 200 characters")
-    .required("Name is required"),
-  price: Yup.number()
-    .min(0.01, "Price must be at least 0.01")
-    .required("Price is required"),
-  // ...
-});
-
-// Formulario com Formik
-<Formik
-  initialValues={initialFormValues}
-  validationSchema={ProductSchema}
-  onSubmit={handleSubmit}
-  enableReinitialize
->
-  {({ values, errors, touched, handleChange, handleBlur, isSubmitting }) => (
-    <Form>
-      <TextField
-        name="name"
-        value={values.name}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        error={touched.name && Boolean(errors.name)}
-        helperText={touched.name && errors.name}
-      />
-    </Form>
-  )}
-</Formik>
+Yup.object({
+  email: Yup.string().email("Email invalido").required("Email obrigatorio"),
+  password: Yup.string().required("Senha obrigatoria")
+})
 ```
 
-### Regras de Validacao
+#### Register
+
+```tsx
+Yup.object({
+  email: Yup.string().email("Email invalido").required("Email obrigatorio"),
+  fullName: Yup.string().max(100, "Nome deve ter no maximo 100 caracteres"),
+  password: Yup.string().min(6, "Minimo 6 caracteres").required("Senha obrigatoria"),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref("password")], "Senhas nao conferem")
+    .required("Confirmacao obrigatoria")
+})
+```
 
 #### Todo
 
@@ -164,53 +197,32 @@ O cliente TypeScript e gerado automaticamente a partir do OpenAPI/Swagger do bac
 npx nswag run nswag.json
 ```
 
-### Configuracao (nswag.json)
-
-```json
-{
-  "runtime": "Net80",
-  "documentGenerator": {
-    "fromDocument": {
-      "url": "http://localhost:5110/swagger/v1/swagger.json"
-    }
-  },
-  "codeGenerators": {
-    "openApiToTypeScriptClient": {
-      "className": "ApiClient",
-      "template": "fetch",
-      "generateClientClasses": true,
-      "generateDtoTypes": true,
-      "output": "src/api/api-client.ts"
-    }
-  }
-}
-```
-
 ### Uso do Cliente
 
 ```tsx
-import { ApiClient } from "../api/api-client";
-import type { ProductDto, CreateProductRequest } from "../api/api-client";
+import { getApiClient } from "../api/apiClientFactory";
 
-const client = new ApiClient("http://localhost:5110");
+// O factory injeta o Bearer token automaticamente
+const client = getApiClient();
 
-// GET todos os produtos
-const products = await client.productAll();
+// Auth
+await client.login({ email, password });
+await client.register({ email, password, confirmPassword, fullName });
+await client.me();
+await client.forgotPassword({ email });
+await client.resetPassword({ email, token, newPassword, confirmPassword });
 
-// GET por ID
-const product = await client.product(id);
+// Products
+const products = await client.paged(pageNumber, pageSize);
+await client.productPOST(request);  // Requer auth
+await client.productPUT(id, request);  // Requer auth
+await client.productDELETE(id);  // Requer auth
 
-// GET por categoria
-const filtered = await client.category("Electronics");
-
-// POST criar
-await client.productPOST(request);
-
-// PUT atualizar
-await client.productPUT(id, request);
-
-// DELETE remover
-await client.productDELETE(id);
+// Todos
+const todos = await client.todoAll();
+await client.todoPOST(request);  // Requer auth
+await client.todoPUT(id, request);  // Requer auth
+await client.todoDELETE(id);  // Requer auth
 ```
 
 ## CLI Commands
@@ -228,7 +240,7 @@ npm run build
 # Preview do build
 npm run preview
 
-# Lint
+# Lint (ESLint)
 npm run lint
 
 # Gerar API client (backend deve estar rodando)
@@ -243,44 +255,12 @@ npx nswag run nswag.json
 | Backend API | http://localhost:5110 |
 | Swagger UI | http://localhost:5110/swagger |
 
-## Estrutura dos Componentes
-
-### TodoList
-
-```
-TodoList
-├── Header (titulo + contador de status)
-├── Add Button → Dialog (formulario)
-├── List
-│   └── ListItem (checkbox + texto + acoes)
-│       ├── Checkbox (toggle complete)
-│       ├── ListItemText (titulo + descricao)
-│       └── Actions (edit + delete)
-├── Form Dialog (Formik)
-└── Delete Confirmation Dialog
-```
-
-### ProductList
-
-```
-ProductList
-├── Header (titulo + add button)
-├── Filter (Select de categoria)
-├── Table
-│   └── TableRow
-│       ├── Name + Description
-│       ├── Category (Chip)
-│       ├── Price (formatado)
-│       ├── Stock (vermelho se < 10)
-│       ├── SKU (monospace)
-│       ├── Active Status (Chip)
-│       └── Actions (edit + delete)
-├── Form Dialog (Formik)
-└── Delete Confirmation Dialog
-```
-
 ## Features
 
+- [x] Autenticacao JWT (login, register, logout)
+- [x] Recuperacao de senha (forgot/reset password)
+- [x] Layout admin com sidebar responsivo
+- [x] Rotas protegidas e publicas
 - [x] CRUD completo para Todos
 - [x] CRUD completo para Products
 - [x] Validacao client-side com Yup
@@ -288,10 +268,9 @@ ProductList
 - [x] UI responsiva com Material UI
 - [x] Theme toggle (light/dark mode)
 - [x] Persistencia de tema no localStorage
-- [x] Navegacao client-side com React Router
 - [x] Loading states com CircularProgress
 - [x] Error handling com Alert
 - [x] Confirmacao de delete com Dialog
 - [x] Filtro por categoria (Products)
-- [x] Status indicators (chips coloridos)
-- [x] API client tipado (NSwag generated)
+- [x] Paginacao server-side (Products)
+- [x] API client tipado com injecao de token

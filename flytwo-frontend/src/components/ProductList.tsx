@@ -25,10 +25,8 @@ import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { ApiClient } from "../api/api-client";
+import { getApiClient } from "../api/apiClientFactory";
 import type { ProductDto, CreateProductRequest, UpdateProductRequest } from "../api/api-client";
-
-const client = new ApiClient("http://localhost:5110");
 
 const CATEGORIES = ["Electronics", "Clothing", "Books", "Home", "Sports", "Toys", "Food", "Beauty"];
 
@@ -98,6 +96,7 @@ export function ProductList() {
       setLoading(true);
       setError(null);
 
+      const client = getApiClient();
       const pageNumber = paginationModel.page + 1; // DataGrid uses 0-indexed
       const pageSize = paginationModel.pageSize;
 
@@ -128,6 +127,7 @@ export function ProductList() {
 
   const handleSubmit = async (values: ProductFormValues, { resetForm }: { resetForm: () => void }) => {
     try {
+      const client = getApiClient();
       if (editingId) {
         const request: UpdateProductRequest = {
           name: values.name,
@@ -162,6 +162,7 @@ export function ProductList() {
   const handleDelete = async () => {
     if (!productToDelete) return;
     try {
+      const client = getApiClient();
       await client.productDELETE(productToDelete.id!);
       setDeleteConfirmOpen(false);
       setProductToDelete(null);

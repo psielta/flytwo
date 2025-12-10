@@ -24,10 +24,8 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { ApiClient } from "../api/api-client";
+import { getApiClient } from "../api/apiClientFactory";
 import type { TodoDto, CreateTodoRequest, UpdateTodoRequest } from "../api/api-client";
-
-const client = new ApiClient("http://localhost:5110");
 
 const TodoSchema = Yup.object().shape({
   title: Yup.string()
@@ -62,6 +60,7 @@ export function TodoList() {
     try {
       setLoading(true);
       setError(null);
+      const client = getApiClient();
       const data = await client.todoAll(signal);
       setTodos(data);
     } catch (err) {
@@ -80,6 +79,7 @@ export function TodoList() {
 
   const handleSubmit = async (values: TodoFormValues, { resetForm }: { resetForm: () => void }) => {
     try {
+      const client = getApiClient();
       if (editingTodo) {
         const request: UpdateTodoRequest = {
           title: values.title,
@@ -105,6 +105,7 @@ export function TodoList() {
 
   const handleToggleComplete = async (todo: TodoDto) => {
     try {
+      const client = getApiClient();
       const request: UpdateTodoRequest = {
         title: todo.title,
         description: todo.description,
@@ -120,6 +121,7 @@ export function TodoList() {
   const handleDelete = async () => {
     if (!todoToDelete) return;
     try {
+      const client = getApiClient();
       await client.todoDELETE(todoToDelete.id!);
       setDeleteConfirmOpen(false);
       setTodoToDelete(null);
