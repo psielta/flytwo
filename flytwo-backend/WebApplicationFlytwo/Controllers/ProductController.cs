@@ -13,7 +13,7 @@ namespace WebApplicationFlytwo.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ProductController : ControllerBase
+public class ProductController : BaseApiController
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;

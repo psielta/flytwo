@@ -12,7 +12,7 @@ namespace WebApplicationFlytwo.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class TodoController : ControllerBase
+public class TodoController : BaseApiController
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;

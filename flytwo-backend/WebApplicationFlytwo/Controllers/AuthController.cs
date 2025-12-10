@@ -12,7 +12,7 @@ namespace WebApplicationFlytwo.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController : BaseApiController
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
@@ -146,13 +146,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<object>> Me()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (userId == null)
-        {
-            return Unauthorized();
-        }
-
-        var user = await _userManager.FindByIdAsync(userId);
+        var user = await GetCurrentUserAsync(_userManager);
         if (user == null)
         {
             return Unauthorized();
