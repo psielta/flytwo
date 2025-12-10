@@ -13,6 +13,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useAuth } from "../auth/useAuth";
+import { Logo } from "../components/Logo";
 
 const RegisterSchema = Yup.object().shape({
   email: Yup.string()
@@ -88,9 +89,12 @@ export function Register() {
           maxWidth: 400,
         }}
       >
-        <Typography variant="h4" component="h1" align="center" gutterBottom>
-          FlyTwo
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mb: 1 }}>
+          <Logo size={40} color="#1976d2" />
+          <Typography variant="h4" component="h1" fontWeight={700}>
+            FlyTwo
+          </Typography>
+        </Box>
         <Typography variant="h6" align="center" color="text.secondary" sx={{ mb: 3 }}>
           Criar nova conta
         </Typography>

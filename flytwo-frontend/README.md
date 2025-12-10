@@ -33,12 +33,10 @@ flytwo-frontend/
 │   ├── components/
 │   │   ├── TodoList.tsx         # Todo CRUD component
 │   │   ├── ProductList.tsx      # Product CRUD component
-│   │   ├── Sidebar.tsx          # Menu lateral de navegacao
 │   │   ├── ProtectedRoute.tsx   # Guard para rotas autenticadas
 │   │   └── PublicRoute.tsx      # Guard para rotas publicas
 │   ├── layouts/
-│   │   ├── AdminLayout.tsx      # Layout com AppBar + Sidebar
-│   │   └── constants.ts         # Constantes do layout
+│   │   └── AdminLayout.tsx      # Layout com AppBar + Mini Drawer
 │   ├── pages/
 │   │   ├── Login.tsx            # Formulario de login
 │   │   ├── Register.tsx         # Formulario de cadastro
@@ -93,21 +91,24 @@ flytwo-frontend/
 
 ## Layout Admin
 
-Rotas protegidas usam o `AdminLayout` com:
+Rotas protegidas usam o `AdminLayout` com Mini Drawer (colapsavel):
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ AppBar (logo, theme toggle, user menu, logout)  │
-├──────────┬──────────────────────────────────────┤
-│          │                                      │
-│ Sidebar  │  Conteudo da pagina                  │
-│ - Todos  │                                      │
-│ - Products│                                     │
-│          │                                      │
-└──────────┴──────────────────────────────────────┘
+│ [=] AppBar (logo, theme toggle, user menu)      │
+├────┬────────────────────────────────────────────┤
+│ [] │                                            │
+│ [] │  Conteudo da pagina                        │
+│    │                                            │
+└────┴────────────────────────────────────────────┘
+
+Drawer fechado: mostra apenas icones
+Drawer aberto: mostra icones + texto
 ```
 
-- Sidebar responsivo (drawer temporario em mobile)
+- **Mini Drawer**: expande/colapsa com animacao suave
+- Quando fechado, mostra apenas os icones dos menus
+- Quando aberto, mostra icones + labels
 - Toggle de tema (light/dark mode) com persistencia
 - Menu do usuario com opcao de logout
 

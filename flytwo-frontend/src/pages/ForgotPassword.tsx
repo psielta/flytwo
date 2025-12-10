@@ -13,6 +13,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { getApiClient } from "../api/apiClientFactory";
+import { Logo } from "../components/Logo";
 
 const ForgotPasswordSchema = Yup.object().shape({
   email: Yup.string()
@@ -69,9 +70,12 @@ export function ForgotPassword() {
           maxWidth: 400,
         }}
       >
-        <Typography variant="h4" component="h1" align="center" gutterBottom>
-          FlyTwo
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mb: 1 }}>
+          <Logo size={40} color="#1976d2" />
+          <Typography variant="h4" component="h1" fontWeight={700}>
+            FlyTwo
+          </Typography>
+        </Box>
         <Typography variant="h6" align="center" color="text.secondary" sx={{ mb: 3 }}>
           Recuperar senha
         </Typography>
