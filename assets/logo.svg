@@ -1,19 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
-  <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
-    </linearGradient>
-  </defs>
+<svg
+  width="200"
+  height="60"
+  viewBox="0 0 200 60"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Ícone FT (baseado no Logo.tsx do frontend) -->
+  <g transform="translate(5, 5) scale(0.5)">
+    <!-- Retângulo de fundo -->
+    <rect x="4" y="4" width="92" height="92" rx="8" stroke="#1976d2" stroke-width="4" fill="none" />
 
-  <!-- Icon: Stylized plane/arrow representing "Fly" -->
-  <g transform="translate(10, 10)">
-    <path d="M0 20 L15 10 L15 15 L35 5 L30 20 L35 35 L15 25 L15 30 Z" fill="url(#grad1)"/>
-    <path d="M20 20 L30 20" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    <!-- Letra F estilizada -->
+    <path
+      d="M20 25 L50 25 L50 33 L30 33 L30 45 L45 45 L45 53 L30 53 L30 75 L20 75 Z"
+      fill="#1976d2"
+    />
+
+    <!-- Letra T estilizada -->
+    <path
+      d="M50 25 L80 25 L80 33 L65 33 L65 75 L55 75 L55 33 L50 33 Z"
+      fill="#1976d2"
+    />
   </g>
 
-  <!-- Text: FlyTwo -->
-  <text x="55" y="40" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#1e293b">
-    Fly<tspan fill="url(#grad1)">Two</tspan>
+  <!-- Texto: FlyTwo -->
+  <text x="62" y="40" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700" fill="#1e293b">
+    Fly<tspan fill="#1976d2">Two</tspan>
   </text>
 </svg>
