@@ -50,14 +50,15 @@ npm run web
 ```
 flytwo-mobile/
 ├── app/                          # Telas (Expo Router)
-│   ├── _layout.tsx               # Layout raiz com AuthProvider
+│   ├── _layout.tsx               # Layout raiz com providers
+│   ├── sobre.tsx                 # Tela Sobre o app
 │   ├── (auth)/                   # Telas publicas (login, registro)
 │   │   ├── _layout.tsx
 │   │   ├── login.tsx
 │   │   └── register.tsx
 │   ├── (tabs)/                   # Telas protegidas (autenticado)
-│   │   ├── _layout.tsx
-│   │   ├── index.tsx             # Home com info do usuario
+│   │   ├── _layout.tsx           # Layout com Header e Drawer
+│   │   ├── index.tsx             # Home
 │   │   └── explore.tsx
 │   └── modal.tsx
 ├── src/
@@ -69,25 +70,40 @@ flytwo-mobile/
 │   │   ├── authTypes.ts          # Tipos TypeScript
 │   │   ├── authUtils.ts          # Helpers AsyncStorage
 │   │   └── useAuth.ts            # Hook customizado
-│   └── components/
-│       └── Logo.tsx              # Componente do logo FlyTwo
+│   ├── components/
+│   │   ├── Logo.tsx              # Componente do logo FlyTwo
+│   │   ├── AppHeader.tsx         # Header com avatar e theme toggle
+│   │   └── AppDrawer.tsx         # Drawer lateral com menu
+│   └── theme/
+│       ├── index.ts              # Temas customizados (cores MUI)
+│       └── ThemeContext.tsx      # Context para theme toggle
 ├── components/                   # Componentes compartilhados
 ├── assets/                       # Imagens e icones
 ├── nswag.json                    # Configuracao NSwag
 └── package.json
 ```
 
-## Autenticacao
+## Funcionalidades
 
-O sistema de autenticacao implementa:
-
+### Autenticacao
 - **Login** - Autenticacao com email e senha
 - **Registro** - Criacao de nova conta
-- **Logout** - Encerramento de sessao
+- **Logout** - Via drawer lateral
 - **Persistencia** - Token JWT salvo no AsyncStorage
-- **Protecao de rotas** - Redirecionamento automatico baseado em estado de autenticacao
+- **Protecao de rotas** - Redirecionamento automatico
 
-### Fluxo de Autenticacao
+### Interface
+- **Header** - Logo FlyTwo, toggle de tema e avatar do usuario
+- **Drawer lateral** - Menu com opcoes (Sobre, Logout)
+- **Theme Toggle** - Alternancia entre tema claro/escuro
+- **Tela Sobre** - Informacoes do projeto, tecnologias e desenvolvedor
+
+### Tema
+- **Cores Material UI** - Primary `#1976d2` (azul MUI)
+- **Suporte light/dark** - Toggle manual ou seguir sistema
+- **Persistencia** - Preferencia salva no AsyncStorage
+
+## Fluxo de Autenticacao
 
 1. Usuario acessa o app
 2. Se nao autenticado -> Redireciona para login
@@ -149,12 +165,33 @@ const Schema = Yup.object().shape({
 </Formik>
 ```
 
-## Tema
+## Tema Customizado
 
-O app utiliza Material Design 3 com suporte automatico a tema claro/escuro baseado nas configuracoes do sistema.
+O app usa cores do Material UI para consistencia com o frontend web:
 
-- `MD3LightTheme` / `MD3DarkTheme` do React Native Paper
-- Cores do tema acessiveis via `useTheme()` hook
+```typescript
+// src/theme/index.ts
+const muiColors = {
+  primary: '#1976d2',      // MUI primary blue
+  secondary: '#9c27b0',    // MUI secondary purple
+  error: '#d32f2f',        // MUI error red
+  background: '#fafafa',   // MUI grey[50]
+};
+```
+
+### Theme Toggle
+
+```tsx
+import { useThemeMode } from '../src/theme/ThemeContext';
+
+const { isDark, toggleTheme, setThemeMode } = useThemeMode();
+
+// Toggle entre light/dark
+toggleTheme();
+
+// Definir modo especifico
+setThemeMode('light');  // 'light' | 'dark' | 'system'
+```
 
 ## Configuracao do Backend
 
@@ -189,7 +226,7 @@ const API_BASE_URL = 'http://192.168.x.x:5110';
   "formik": "^2.4.9",
   "yup": "^1.7.1",
   "@react-native-async-storage/async-storage": "^2.2.0",
-  "react-native-svg": "^15.15.1",
+  "react-native-svg": "15.12.1",
   "expo-router": "~6.0.17"
 }
 ```
@@ -198,10 +235,13 @@ const API_BASE_URL = 'http://192.168.x.x:5110';
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `app/_layout.tsx` | Layout raiz com providers (Auth, Paper, Navigation) |
+| `app/_layout.tsx` | Layout raiz com providers (Theme, Auth, Paper) |
+| `app/(tabs)/_layout.tsx` | Layout das tabs com Header e Drawer |
 | `src/auth/AuthContext.tsx` | Context de autenticacao |
-| `src/auth/authUtils.ts` | Funcoes de persistencia (AsyncStorage) |
-| `src/api/apiClientFactory.ts` | Factory do cliente API com token |
+| `src/theme/ThemeContext.tsx` | Context para theme toggle |
+| `src/theme/index.ts` | Temas customizados com cores MUI |
+| `src/components/AppHeader.tsx` | Header com avatar e theme toggle |
+| `src/components/AppDrawer.tsx` | Drawer lateral com menu |
 | `nswag.json` | Configuracao para geracao do cliente API |
 
 ## Solucao de Problemas
@@ -224,3 +264,7 @@ npm run generate-api
 ```bash
 npx expo start --clear
 ```
+
+### Tema nao atualiza
+
+Verifique se o ThemeProvider esta no topo da arvore de componentes em `_layout.tsx`.

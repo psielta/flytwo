@@ -1,14 +1,23 @@
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Button, Card, Surface, Text, useTheme, Avatar, Divider } from 'react-native-paper';
+import { Card, Surface, Text, useTheme, Avatar, Divider } from 'react-native-paper';
 import { useAuth } from '../../src/auth/useAuth';
-import { Logo } from '../../src/components/Logo';
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
-  const handleLogout = async () => {
-    await logout();
+  const getInitials = () => {
+    if (user?.fullName) {
+      const names = user.fullName.split(' ');
+      if (names.length >= 2) {
+        return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
+      }
+      return user.fullName[0].toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
   };
 
   return (
@@ -16,19 +25,16 @@ export default function HomeScreen() {
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.contentContainer}
     >
-      <View style={styles.header}>
-        <Logo size={48} color={theme.colors.primary} />
-        <Text variant="headlineLarge" style={styles.title}>
-          FlyTwo
-        </Text>
-      </View>
+      <Text variant="headlineSmall" style={styles.greeting}>
+        Ola, {user?.fullName?.split(' ')[0] || 'Usuario'}!
+      </Text>
 
       <Card style={styles.userCard}>
         <Card.Content>
           <View style={styles.userInfo}>
             <Avatar.Text
               size={64}
-              label={user?.fullName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+              label={getInitials()}
               style={{ backgroundColor: theme.colors.primary }}
             />
             <View style={styles.userDetails}>
@@ -53,8 +59,8 @@ export default function HomeScreen() {
           Bem-vindo ao FlyTwo Mobile!
         </Text>
         <Text variant="bodyMedium">
-          Voce esta logado com sucesso. Este app utiliza React Native Paper com Material Design 3
-          para uma experiencia moderna e consistente.
+          Sistema de cotacao de precos usando APIs publicas do governo.
+          Use o menu lateral para acessar configuracoes e informacoes do app.
         </Text>
       </Surface>
 
@@ -72,22 +78,13 @@ export default function HomeScreen() {
             <Text variant="bodyMedium">• Persistencia de sessao</Text>
           </View>
           <View style={styles.featureItem}>
-            <Text variant="bodyMedium">• Tema claro/escuro automatico</Text>
+            <Text variant="bodyMedium">• Tema claro/escuro</Text>
           </View>
           <View style={styles.featureItem}>
-            <Text variant="bodyMedium">• Validacao de formularios com Yup</Text>
+            <Text variant="bodyMedium">• Validacao de formularios</Text>
           </View>
         </View>
       </Surface>
-
-      <Button
-        mode="outlined"
-        onPress={handleLogout}
-        style={styles.logoutButton}
-        icon="logout"
-      >
-        Sair da conta
-      </Button>
     </ScrollView>
   );
 }
@@ -98,17 +95,10 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingTop: 48,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  title: {
-    fontWeight: '700',
+  greeting: {
+    marginBottom: 16,
+    fontWeight: '600',
   },
   userCard: {
     marginBottom: 16,
@@ -137,8 +127,5 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 8,
-  },
-  logoutButton: {
-    marginTop: 8,
   },
 });

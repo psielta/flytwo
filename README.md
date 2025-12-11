@@ -5,12 +5,14 @@
 <h1 align="center">FlyTwo - Sistema de Cotação de Preços</h1>
 
 <p align="center">
-  Sistema full-stack desenvolvido com <strong>ASP.NET Core 8</strong> (backend) e <strong>React 19</strong> (frontend) para cotação de preços usando APIs públicas do governo.
+  Sistema full-stack desenvolvido com <strong>ASP.NET Core 8</strong> (backend), <strong>React 19</strong> (frontend) e <strong>React Native</strong> (mobile) para cotação de preços usando APIs públicas do governo.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet" alt=".NET 8" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react" alt="React 19" />
+  <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat&logo=react" alt="React Native" />
+  <img src="https://img.shields.io/badge/Expo-54-000020?style=flat&logo=expo" alt="Expo" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat&logo=postgresql" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Redis-7-DC382D?style=flat&logo=redis" alt="Redis" />
@@ -61,6 +63,18 @@ Fornecer uma plataforma para cotação de preços que:
 | Formik + Yup | 2.4.6 / 1.6.1 | Formulários e validação |
 | NSwag | - | Geração de cliente TypeScript |
 
+### Mobile (React Native + Expo)
+
+| Tecnologia | Versão | Propósito |
+|------------|--------|-----------|
+| React Native | 0.81.5 | Framework mobile |
+| Expo | 54.0.27 | Plataforma de desenvolvimento |
+| Expo Router | 6.0.17 | Navegação baseada em arquivos |
+| React Native Paper | 5.14.5 | UI Material Design 3 |
+| Formik + Yup | 2.4.9 / 1.7.1 | Formulários e validação |
+| AsyncStorage | 2.2.0 | Persistência local |
+| NSwag | - | Geração de cliente TypeScript |
+
 ## Estrutura do Projeto
 
 ```
@@ -82,6 +96,18 @@ FlyTwo/
 │   │   ├── components/           # Componentes React
 │   │   ├── layouts/              # Layout Admin com Drawer
 │   │   └── pages/                # Páginas da aplicação
+│   └── package.json
+│
+├── flytwo-mobile/                # App React Native + Expo
+│   ├── app/                      # Telas (Expo Router)
+│   │   ├── (auth)/               # Login, Registro
+│   │   ├── (tabs)/               # Telas protegidas
+│   │   └── sobre.tsx             # Tela Sobre
+│   ├── src/
+│   │   ├── api/                  # Cliente TypeScript (NSwag)
+│   │   ├── auth/                 # Contexto de autenticação
+│   │   ├── components/           # Header, Drawer, Logo
+│   │   └── theme/                # Tema customizado (cores MUI)
 │   └── package.json
 │
 └── docker-compose.yml            # PostgreSQL + Redis + MailHog
@@ -132,6 +158,29 @@ FlyTwo/
   - Lista com checkboxes
   - Validação client-side
 
+### Mobile
+
+- **Autenticação Completa**
+  - Login e registro
+  - Logout via drawer lateral
+  - Persistência de sessão com AsyncStorage
+
+- **Interface Nativa**
+  - Header com logo, theme toggle e avatar
+  - Drawer lateral com menu do usuário
+  - Navegação por tabs (Home, Explore)
+  - Tela "Sobre" com informações do projeto
+
+- **Tema Consistente**
+  - Cores Material UI (mesmas do frontend web)
+  - Suporte light/dark mode
+  - Toggle manual ou seguir sistema
+
+- **Integração com Backend**
+  - Cliente API gerado via NSwag
+  - Token JWT injetado automaticamente
+  - Mesmos endpoints do frontend web
+
 ## Configuração do Ambiente
 
 ### Pré-requisitos
@@ -139,6 +188,7 @@ FlyTwo/
 - .NET 8 SDK
 - Node.js 18+
 - Docker e Docker Compose
+- Android Studio (para emulador Android) - opcional para mobile
 - Git
 
 ### Passo 1: Clonar o Repositório
@@ -181,6 +231,19 @@ npm run dev
 ```
 
 O frontend estará disponível em http://localhost:5173
+
+### Passo 5: Executar o Mobile (Opcional)
+
+```bash
+cd flytwo-mobile
+npm install
+npm run generate-api  # Backend deve estar rodando
+npm run android       # ou npm run ios (macOS)
+```
+
+O app será aberto no emulador Android/iOS.
+
+> **Nota:** No Android Emulator, o app usa `10.0.2.2:5110` para acessar o backend em `localhost`.
 
 ## Testando o Sistema
 
@@ -290,7 +353,29 @@ npm run dev
 npm run build
 
 # Gerar cliente API (backend deve estar rodando)
-npx nswag run nswag.json
+npm run generate-api
+```
+
+### Mobile
+
+```bash
+# Instalar dependências
+npm install
+
+# Gerar cliente API (backend deve estar rodando)
+npm run generate-api
+
+# Iniciar servidor de desenvolvimento
+npm start
+
+# Executar no Android
+npm run android
+
+# Executar no iOS (macOS apenas)
+npm run ios
+
+# Limpar cache
+npx expo start --clear
 ```
 
 ### Docker
@@ -320,6 +405,10 @@ docker exec -it flytwo-redis redis-cli ping
 - [x] Frontend React com Material UI
 - [x] Geração automática de cliente TypeScript
 - [x] Testes unitários
+- [x] App mobile React Native com Expo
+- [x] Autenticação mobile (login, registro, logout)
+- [x] Theme toggle (light/dark) no mobile
+- [x] Cores consistentes entre web e mobile
 
 ### Fase 2: Integração PNCP (Próxima)
 
@@ -352,6 +441,15 @@ docker exec -it flytwo-redis redis-cli ping
 - **Protected Routes**: Guard para rotas autenticadas
 - **Theme Toggle**: Light/Dark mode com persistência
 - **Responsive Layout**: Mini Drawer adaptável
+
+### Mobile
+
+- **Expo Router**: Navegação baseada em arquivos
+- **React Native Paper**: Material Design 3 nativo
+- **AsyncStorage**: Persistência de token e preferências
+- **Theme Context**: Toggle light/dark com persistência
+- **Cores MUI**: Consistência visual com frontend web
+- **NSwag**: Mesmo cliente API do frontend
 
 ## Licença
 

@@ -2,33 +2,29 @@ import { useEffect } from 'react';
 import {
   DarkTheme as NavigationDarkTheme,
   DefaultTheme as NavigationDefaultTheme,
-  ThemeProvider,
+  ThemeProvider as NavigationThemeProvider,
 } from '@react-navigation/native';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View } from 'react-native';
-import {
-  MD3DarkTheme,
-  MD3LightTheme,
-  PaperProvider,
-  ActivityIndicator,
-} from 'react-native-paper';
+import { View } from 'react-native';
+import { PaperProvider, ActivityIndicator } from 'react-native-paper';
 import 'react-native-reanimated';
 import { AuthProvider } from '../src/auth/AuthContext';
 import { useAuth } from '../src/auth/useAuth';
+import { ThemeProvider, useThemeMode } from '../src/theme/ThemeContext';
+import { lightTheme, darkTheme } from '../src/theme';
 
 export const unstable_settings = {
   initialRouteName: '(auth)',
 };
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark } = useThemeMode();
   const { isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
 
-  const paperTheme = isDark ? MD3DarkTheme : MD3LightTheme;
+  const paperTheme = isDark ? darkTheme : lightTheme;
   const navigationTheme = isDark ? NavigationDarkTheme : NavigationDefaultTheme;
 
   useEffect(() => {
@@ -40,8 +36,8 @@ function RootLayoutNav() {
       if (isAuthenticated && inAuthGroup) {
         // User is authenticated but in auth group, redirect to tabs
         router.replace('/(tabs)');
-      } else if (!isAuthenticated && !inAuthGroup) {
-        // User is not authenticated and not in auth group, redirect to login
+      } else if (!isAuthenticated && !inAuthGroup && segments[0] !== 'sobre') {
+        // User is not authenticated and not in auth group (except sobre), redirect to login
         router.replace('/(auth)/login');
       }
     }
@@ -56,21 +52,23 @@ function RootLayoutNav() {
   }
 
   return (
-    <ThemeProvider value={navigationTheme}>
-      <Stack>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <PaperProvider theme={paperTheme}>
+      <NavigationThemeProvider value={navigationTheme}>
+        <Stack>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="sobre" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </NavigationThemeProvider>
+    </PaperProvider>
   );
 }
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const paperTheme = isDark ? MD3DarkTheme : MD3LightTheme;
+function AppWithTheme() {
+  const { isDark } = useThemeMode();
+  const paperTheme = isDark ? darkTheme : lightTheme;
 
   return (
     <PaperProvider theme={paperTheme}>
@@ -78,5 +76,13 @@ export default function RootLayout() {
         <RootLayoutNav />
       </AuthProvider>
     </PaperProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <AppWithTheme />
+    </ThemeProvider>
   );
 }
