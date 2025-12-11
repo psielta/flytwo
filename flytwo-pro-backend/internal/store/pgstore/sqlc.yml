@@ -19,3 +19,13 @@ sql:
             go_type:
               import: "time"
               type: "Time"
+          # mapeia o tipo da extensão
+          - db_type: "vector"
+            go_type:
+              import: "github.com/pgvector/pgvector-go"
+              type: "Vector"
+          # (opcional) cobre caso o tipo esteja qualificado
+          - db_type: "public.vector"
+            go_type:
+              import: "github.com/pgvector/pgvector-go"
+              type: "Vector"

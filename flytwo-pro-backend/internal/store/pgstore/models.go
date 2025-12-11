@@ -8,7 +8,38 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
+
+type CatmatItem struct {
+	ID              int64           `json:"id"`
+	GroupCode       int16           `json:"group_code"`
+	GroupName       string          `json:"group_name"`
+	ClassCode       int32           `json:"class_code"`
+	ClassName       string          `json:"class_name"`
+	PdmCode         int32           `json:"pdm_code"`
+	PdmName         string          `json:"pdm_name"`
+	ItemCode        int32           `json:"item_code"`
+	ItemDescription string          `json:"item_description"`
+	NcmCode         pgtype.Text     `json:"ncm_code"`
+	SearchDocument  interface{}     `json:"search_document"`
+	Embedding       pgvector.Vector `json:"embedding"`
+}
+
+type CatserItem struct {
+	ID                  int64           `json:"id"`
+	MaterialServiceType string          `json:"material_service_type"`
+	GroupCode           int16           `json:"group_code"`
+	GroupName           string          `json:"group_name"`
+	ClassCode           int32           `json:"class_code"`
+	ClassName           string          `json:"class_name"`
+	ServiceCode         int32           `json:"service_code"`
+	ServiceDescription  string          `json:"service_description"`
+	Status              string          `json:"status"`
+	SearchDocument      interface{}     `json:"search_document"`
+	Embedding           pgvector.Vector `json:"embedding"`
+}
 
 type Session struct {
 	Token  string    `json:"token"`
