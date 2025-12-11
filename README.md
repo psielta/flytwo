@@ -10,7 +10,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet" alt=".NET 8" />
+  <img src="https://img.shields.io/badge/Go-1.21-00ADD8?style=flat&logo=go" alt="Go" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react" alt="React 19" />
+  <img src="https://img.shields.io/badge/Angular-21-DD0031?style=flat&logo=angular" alt="Angular 21" />
   <img src="https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat&logo=react" alt="React Native" />
   <img src="https://img.shields.io/badge/Expo-54-000020?style=flat&logo=expo" alt="Expo" />
   <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat&logo=typescript" alt="TypeScript" />
@@ -24,11 +26,43 @@
 
 > **Nota:** Os módulos de **Produtos** e **Tarefas (Todo)** foram implementados como **ponto de partida** para validar a arquitetura completa (autenticação JWT, cache híbrido, geração de clientes TypeScript). Esses módulos serão substituídos pelos módulos de cotação de preços nas próximas fases do desenvolvimento.
 
+### Arquitetura do Sistema
+
+O projeto é dividido em dois backends com responsabilidades distintas:
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **FlyTwo Backend** | ASP.NET Core 8 | Dados do usuário (autenticação, perfil, configurações) |
+| **FlyTwo Pro Backend** | Go (Chi + sqlc) | Dados de pesquisa (CATMAT/CATSER, preços, cotações) |
+| **FlyTwo Pro Frontend** | Angular 21 | Admin para importação de dados e planilhas |
+
+Esta separação foi escolhida para:
+- **Performance**: Go oferece melhor desempenho para consultas de grande volume de dados (catálogos CATMAT/CATSER)
+- **Isolamento**: Banco de dados separado para dados de pesquisa vs dados do usuário
+- **Escalabilidade**: Cada serviço pode escalar independentemente
+
+### FlyTwo Pro - Serviço de Pesquisa
+
+O **FlyTwo Pro** é um subsistema dedicado à importação e gerenciamento de dados de pesquisa para cotação:
+
+- **Frontend Angular**: Dashboard administrativo para importação de planilhas
+  - Importação de catálogos CATMAT (materiais) e CATSER (serviços)
+  - Importação de planilhas de preços da CGU
+  - Upload e processamento de arquivos CSV/Excel
+  - Visualização e validação de dados importados
+
+- **Backend Go**: API de alta performance para armazenamento e consulta
+  - Processamento de grandes volumes de dados
+  - Queries otimizadas com sqlc
+  - Banco PostgreSQL dedicado (porta 5580)
+
+> **Nota**: O FlyTwo Pro Frontend é exclusivamente para administração e importação de dados. Os usuários finais consultam os dados através do FlyTwo Frontend (React) e Mobile.
+
 ### Objetivo Final
 
 Fornecer uma plataforma para cotação de preços que:
 - Consulta APIs públicas do governo (PNCP - Portal Nacional de Contratações Públicas)
-- Gerencia catálogo de produtos com preços de referência
+- Gerencia catálogo de produtos com preços de referência (CATMAT/CATSER)
 - Compara preços entre diferentes fontes
 - Gera relatórios de cotação
 
@@ -76,6 +110,29 @@ Fornecer uma plataforma para cotação de preços que:
 | Expo SQLite | 16.0.2 | Banco de dados local |
 | NSwag | - | Geração de cliente TypeScript |
 
+### FlyTwo Pro Backend (Go)
+
+| Tecnologia | Versão | Propósito |
+|------------|--------|-----------|
+| Go | 1.21+ | Linguagem principal |
+| chi/v5 | - | Router HTTP |
+| sqlc + pgx/v5 | - | Geração de código SQL type-safe |
+| scs/v2 | - | Gerenciamento de sessões (cookies) |
+| go-playground/validator | - | Validação de dados |
+| uber-go/zap | - | Logging estruturado |
+| swaggo/swag | - | Documentação OpenAPI |
+| PostgreSQL | 16 | Banco de dados (porta 5580) |
+
+### FlyTwo Pro Frontend (Angular)
+
+| Tecnologia | Versão | Propósito |
+|------------|--------|-----------|
+| Angular | 21.x | Framework principal |
+| Angular Material | 21.x | UI Material Design 3 |
+| ng-openapi-gen | latest | Geração de cliente HTTP tipado |
+| RxJS | 7.8.x | Programação reativa |
+| TypeScript | 5.9.x | Tipagem estática |
+
 ## Estrutura do Projeto
 
 ```
@@ -110,6 +167,17 @@ FlyTwo/
 │   │   ├── components/           # Header, Drawer, Logo
 │   │   ├── database/             # SQLite (migrations, hooks)
 │   │   └── theme/                # Tema customizado (cores MUI)
+│   └── package.json
+│
+├── flytwo-pro-backend/           # API REST Go (Chi + scs)
+│   └── ...                       # Ver flytwo-pro-backend/README.md
+│
+├── flytwo-pro-frontend/          # SPA Angular + Material
+│   ├── src/app/
+│   │   ├── api/                  # Cliente TypeScript (ng-openapi-gen)
+│   │   ├── core/                 # AuthService, Guards, Interceptors
+│   │   ├── features/             # Login, Register, Dashboard
+│   │   └── shared/               # Layouts, Componentes
 │   └── package.json
 │
 └── docker-compose.yml            # PostgreSQL + Redis + MailHog
@@ -183,12 +251,56 @@ FlyTwo/
   - Token JWT injetado automaticamente
   - Mesmos endpoints do frontend web
 
+### FlyTwo Pro Backend (Go)
+
+- **Autenticação com Sessões (scs)**
+  - Login e registro de usuários
+  - Cookies HttpOnly para segurança
+  - CORS configurado para frontend Angular
+
+- **API REST com Chi**
+  - Rotas organizadas por domínio
+  - Middleware de autenticação
+  - Documentação OpenAPI 3.0 automática
+
+- **Banco de Dados PostgreSQL**
+  - sqlc para queries type-safe
+  - Migrações com tern
+  - Banco separado (porta 5580)
+
+### FlyTwo Pro Frontend (Angular)
+
+- **Dashboard Administrativo para Importação de Dados**
+  - Importação de catálogos CATMAT (materiais)
+  - Importação de catálogos CATSER (serviços)
+  - Importação de planilhas de preços da CGU
+  - Upload de arquivos CSV/Excel
+  - Validação e visualização de dados
+
+- **Autenticação Completa**
+  - Login e registro
+  - Logout com redirect automático
+  - Guards para rotas protegidas/públicas
+
+- **Layout Admin Responsivo**
+  - Sidenav com navegação
+  - Toggle de tema (light/dark)
+  - Menu do usuário
+
+- **Integração com API Go**
+  - Cliente TypeScript gerado via ng-openapi-gen
+  - Interceptors para credentials e erros
+  - Signals para estado reativo
+
+> **Nota**: Este frontend é exclusivo para administradores. Usuários finais acessam os dados via FlyTwo Frontend (React) e Mobile.
+
 ## Configuração do Ambiente
 
 ### Pré-requisitos
 
 - .NET 8 SDK
-- Node.js 18+
+- Go 1.21+
+- Node.js 20+
 - Docker e Docker Compose
 - Android Studio (para emulador Android) - opcional para mobile
 - Git
@@ -246,6 +358,30 @@ npm run android       # ou npm run ios (macOS)
 O app será aberto no emulador Android/iOS.
 
 > **Nota:** No Android Emulator, o app usa `10.0.2.2:5110` para acessar o backend em `localhost`.
+
+### Passo 6: Executar o FlyTwo Pro Backend (Opcional)
+
+```bash
+cd flytwo-pro-backend
+docker-compose up -d        # PostgreSQL na porta 5580
+go run ./cmd/terndotend/main.go  # Migrações
+go run cmd/api/main.go      # Servidor na porta 3080
+```
+
+O backend Go estará disponível em:
+- **API**: http://localhost:3080
+- **Swagger UI**: http://localhost:3080/swagger/index.html
+
+### Passo 7: Executar o FlyTwo Pro Frontend (Opcional)
+
+```bash
+cd flytwo-pro-frontend
+npm install
+npm run api:generate  # Backend Go deve estar rodando
+npm start
+```
+
+O frontend Angular estará disponível em http://localhost:4200
 
 ## Testando o Sistema
 
@@ -319,6 +455,15 @@ dotnet test
 | POST | /api/todo | Criar tarefa (auth) |
 | PUT | /api/todo/{id} | Atualizar tarefa (auth) |
 | DELETE | /api/todo/{id} | Remover tarefa (auth) |
+
+### FlyTwo Pro (Go Backend)
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | /api/v1/users/signup | Criar novo usuário |
+| POST | /api/v1/users/login | Login (retorna cookie) |
+| POST | /api/v1/users/logout | Logout |
+| GET | /api/v1/users/me | Perfil do usuário autenticado |
 
 ## CLI Commands
 
@@ -396,6 +541,47 @@ docker exec -it flytwo-redis redis-cli ping
 # Acesse: http://localhost:8025
 ```
 
+### FlyTwo Pro Backend (Go)
+
+```bash
+# Subir banco de dados (porta 5580)
+docker-compose up -d
+
+# Executar migrações
+go run ./cmd/terndotend/main.go
+
+# Rodar servidor
+go run cmd/api/main.go
+
+# Gerar documentação Swagger
+swag init -g cmd/api/main.go -o docs
+
+# Gerar código sqlc
+sqlc generate -f ./internal/store/pgstore/sqlc.yml
+
+# Testes
+go test ./...
+```
+
+### FlyTwo Pro Frontend (Angular)
+
+```bash
+# Instalar dependências
+npm install
+
+# Desenvolvimento (porta 4200)
+npm start
+
+# Gerar cliente API (backend Go deve estar rodando)
+npm run api:generate
+
+# Build produção
+npm run build
+
+# Testes
+npm test
+```
+
 ## Roadmap
 
 ### Fase 1: Base Arquitetural (Concluído)
@@ -411,6 +597,21 @@ docker exec -it flytwo-redis redis-cli ping
 - [x] Autenticação mobile (login, registro, logout)
 - [x] Theme toggle (light/dark) no mobile
 - [x] Cores consistentes entre web e mobile
+
+### Fase 1.5: FlyTwo Pro - Serviço de Pesquisa (Em Andamento)
+
+- [x] Backend Go com Chi e sqlc
+- [x] Autenticação com sessões (scs)
+- [x] Documentação OpenAPI 3.0 automática
+- [x] Frontend Angular com Material Design 3
+- [x] Cliente TypeScript gerado (ng-openapi-gen)
+- [x] Guards e interceptors para auth
+- [x] Theme toggle (light/dark)
+- [x] Banco de dados separado (porta 5580)
+- [ ] Upload e importação de planilhas CATMAT
+- [ ] Upload e importação de planilhas CATSER
+- [ ] Upload e importação de planilhas de preços CGU
+- [ ] Validação e preview de dados antes da importação
 
 ### Fase 2: Integração PNCP (Próxima)
 
@@ -453,6 +654,22 @@ docker exec -it flytwo-redis redis-cli ping
 - **Cores MUI**: Consistência visual com frontend web
 - **NSwag**: Mesmo cliente API do frontend
 - **SQLite**: Banco local com sistema de migrations
+
+### FlyTwo Pro Backend (Go)
+
+- **Chi Router**: Roteamento HTTP leve e performático
+- **sqlc**: Queries SQL type-safe com geração de código
+- **scs**: Sessões via cookies HttpOnly
+- **Zap**: Logging estruturado de alta performance
+- **Swagger/OpenAPI 3.0**: Documentação automática
+
+### FlyTwo Pro Frontend (Angular)
+
+- **Standalone Components**: Arquitetura modular Angular 21
+- **Signals**: Estado reativo com Angular Signals
+- **ng-openapi-gen**: Cliente HTTP gerado automaticamente
+- **Functional Guards**: AuthGuard e GuestGuard
+- **Material Design 3**: UI consistente com tema azure/rose
 
 ## Licença
 

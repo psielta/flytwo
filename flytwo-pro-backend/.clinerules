@@ -1,0 +1,1084 @@
+# FlyTwo Pro Backend - Project Conventions and Guidelines
+
+## Project Overview
+This is a Go-based API backend for FlyTwo Pro using PostgreSQL. The project follows clean architecture principles with clear separation of concerns.
+
+## Tech Stack
+- **Language**: Go 1.21+
+- **Database**: PostgreSQL (running in Docker on port 5580)
+- **Web Framework**: chi/v5
+- **ORM/Query Builder**: sqlc with pgx/v5
+- **Validation**: go-playground/validator
+- **Logging**: uber-go/zap
+- **Documentation**: swaggo/swag (Swagger/OpenAPI)
+- **Testing**: testify (assert, mock, suite)
+- **Session Management**: alexedwards/scs/v2
+
+## Project Structure
+```
+flytwo-pro-backend/
+├── cmd/api/              # Application entry point
+│   └── main.go           # Main function with Swagger annotations
+├── internal/             # Private application code
+│   ├── api/              # HTTP handlers and routes
+│   │   ├── routes.go     # Route definitions
+│   │   ├── api.go        # API struct and initialization
+│   │   └── *_handlers.go # Handler implementations
+│   ├── dto/              # Data Transfer Objects
+│   │   └── *.go          # Request/Response structs with validation tags
+│   ├── services/         # Business logic layer
+│   │   └── *_service.go  # Service implementations
+│   ├── store/            # Database layer
+│   │   ├── pgstore/      # PostgreSQL store implementation (sqlc generated)
+│   │   └── queries/      # SQL queries for sqlc
+│   ├── validator/        # Custom validation logic
+│   │   └── playground.go # go-playground/validator wrapper
+│   ├── logger/           # Logging configuration
+│   │   └── logger.go     # Zap logger setup with file persistence
+│   ├── jsonutils/        # JSON encoding/decoding utilities
+│   └── mocks/            # Mock implementations for testing
+├── docs/                 # Swagger documentation (auto-generated)
+├── logs/                 # Application logs (auto-created, in .gitignore)
+│   ├── app.log           # Current log file (JSON format)
+│   └── app.log.*.gz      # Rotated/compressed old logs
+├── migrations/           # Database migrations
+├── .env                  # Environment variables
+├── docker-compose.yml    # Docker services configuration
+├── Makefile             # Build and test automation
+├── run-tests.ps1        # PowerShell test runner
+└── run-tests.sh         # Bash test runner
+```
+
+## Adding New Endpoints
+
+### 1. Define DTO (Data Transfer Object)
+Create request/response structs in `internal/dto/`:
+
+```go
+// internal/dto/auction.go
+package dto
+
+// Request DTO with validation tags
+type CreateAuctionReq struct {
+    Title       string  `json:"title" validate:"required,min=3,max=100"`
+    Description string  `json:"description" validate:"required,min=10,max=500"`
+    StartPrice  float64 `json:"start_price" validate:"required,min=0.01"`
+    EndTime     string  `json:"end_time" validate:"required,datetime=2006-01-02T15:04:05Z07:00"`
+}
+
+// Response DTO
+type AuctionResponse struct {
+    ID          string  `json:"id"`
+    Title       string  `json:"title"`
+    Description string  `json:"description"`
+    StartPrice  float64 `json:"start_price"`
+    CurrentBid  float64 `json:"current_bid"`
+    Status      string  `json:"status"`
+    CreatedAt   string  `json:"created_at"`
+}
+```
+
+### 2. Create Handler with Swagger Documentation
+Add handler in `internal/api/auction_handlers.go`:
+
+```go
+package api
+
+// CreateAuction creates a new auction
+// @Summary      Create new auction
+// @Description  Creates a new auction with the provided details
+// @Tags         auctions
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.CreateAuctionReq true "Auction details"
+// @Success      201 {object} dto.AuctionResponse
+// @Failure      422 {object} map[string]interface{} "Validation error with field details"
+// @Failure      500 {object} map[string]interface{} "Internal server error"
+// @Router       /auctions [post]
+func (api *Api) handleCreateAuction(w http.ResponseWriter, r *http.Request) {
+    // 1. Decode and validate request
+    var req dto.CreateAuctionReq
+    problems, err := jsonutils.DecodeValidJson(r, &req, api.validator)
+    if err != nil {
+        api.logger.Debug("Validation failed for auction creation",
+            zap.Error(err),
+            zap.Any("validation_errors", problems))
+
+        response := map[string]any{
+            "error": "Validation failed",
+            "fields": problems,
+        }
+        _ = jsonutils.EncodeJson(w, http.StatusUnprocessableEntity, response)
+        return
+    }
+
+    // 2. Log the request
+    api.logger.Info("Creating new auction",
+        zap.String("title", req.Title),
+        zap.Float64("start_price", req.StartPrice))
+
+    // 3. Call service layer
+    ctx := r.Context()
+    auction, err := api.AuctionService.CreateAuction(ctx, req)
+    if err != nil {
+        // Handle specific errors
+        if errors.Is(err, services.ErrInvalidEndTime) {
+            api.logger.Warn("Invalid end time provided",
+                zap.String("end_time", req.EndTime))
+            _ = jsonutils.EncodeJson(w, http.StatusBadRequest, map[string]string{
+                "error": "end time must be in the future",
+            })
+            return
+        }
+
+        // Log unexpected errors
+        api.logger.Error("Failed to create auction",
+            zap.Error(err),
+            zap.String("title", req.Title))
+        _ = jsonutils.EncodeJson(w, http.StatusInternalServerError, map[string]string{
+            "error": "internal server error",
+        })
+        return
+    }
+
+    // 4. Return success response
+    api.logger.Info("Auction created successfully",
+        zap.String("auction_id", auction.ID),
+        zap.String("title", auction.Title))
+
+    _ = jsonutils.EncodeJson(w, http.StatusCreated, auction)
+}
+```
+
+### 3. Register Route
+Add route in `internal/api/routes.go`:
+
+```go
+func (api *Api) BindRoutes() {
+    // ... existing middleware ...
+
+    api.Router.Route("/api/v1", func(r chi.Router) {
+        r.Route("/auctions", func(r chi.Router) {
+            r.Post("/", api.handleCreateAuction)
+            r.Get("/{id}", api.handleGetAuction)
+            r.Get("/", api.handleListAuctions)
+
+            // Protected routes
+            r.Group(func(r chi.Router) {
+                r.Use(api.AuthenticationRequired)
+                r.Put("/{id}", api.handleUpdateAuction)
+                r.Delete("/{id}", api.handleDeleteAuction)
+            })
+        })
+    })
+}
+```
+
+## Logging Guidelines (Zap)
+
+### Log File Location and Persistence
+Logs are automatically persisted to files with rotation using **lumberjack**:
+
+- **Log Directory**: `logs/` (at project root)
+- **Main Log File**: `logs/app.log`
+- **Format**: JSON format in files, colored console output for development
+- **Rotation Settings**:
+  - **Max Size**: 10 MB per file
+  - **Max Backups**: 5 old log files retained
+  - **Max Age**: 30 days
+  - **Compression**: Rotated files are automatically compressed (.gz)
+
+### Log Configuration
+The logger is configured in `internal/logger/logger.go`:
+- Logs are written to **both console and file simultaneously**
+- Console output uses colored format (development mode)
+- File output uses JSON format (structured logging)
+- Automatic directory creation if `logs/` doesn't exist
+
+### Accessing Logs
+When debugging or investigating issues:
+```bash
+# View latest logs
+cat logs/app.log
+
+# View logs with jq for better formatting
+cat logs/app.log | jq '.'
+
+# Tail logs in real-time
+tail -f logs/app.log
+
+# Search for specific errors
+grep -i "error" logs/app.log
+
+# View compressed old logs
+gunzip -c logs/app.log.1.gz
+```
+
+### Customizing Log Configuration
+To customize logger settings, modify `internal/logger/logger.go`:
+```go
+config := logger.LoggerConfig{
+    Development: true,
+    LogFilePath: "logs/app.log",  // Custom path
+    MaxSize:     10,               // Size in MB
+    MaxBackups:  5,                // Number of old files
+    MaxAge:      30,               // Days to keep
+    Compress:    true,             // Compress rotated files
+}
+logger.InitLoggerWithConfig(config)
+```
+
+### Log Levels and When to Use
+- **DEBUG**: Detailed validation errors, request/response bodies
+- **INFO**: Normal operations (user created, login successful)
+- **WARN**: Business logic violations, invalid credentials
+- **ERROR**: Unexpected errors, database failures
+
+### Logging Examples
+```go
+// Debug - for development and debugging
+api.logger.Debug("Validation failed",
+    zap.Error(err),
+    zap.Any("validation_errors", problems))
+
+// Info - for normal operations
+api.logger.Info("User created successfully",
+    zap.String("user_id", userID.String()),
+    zap.String("email", email))
+
+// Warn - for expected errors
+api.logger.Warn("Login failed - invalid credentials",
+    zap.String("email", email))
+
+// Error - for unexpected errors
+api.logger.Error("Database connection failed",
+    zap.Error(err),
+    zap.String("operation", "create_user"))
+
+// With stack trace for critical errors
+api.logger.Warn("Duplicate user attempt",
+    zap.String("email", email),
+    zap.String("username", username),
+    zap.Stack("stacktrace"))
+```
+
+## Validation (go-playground/validator)
+
+### Custom Validation Tags
+The project uses custom validation with snake_case field name conversion:
+
+```go
+// Validation tags available:
+// - required: field must not be empty
+// - email: must be valid email format
+// - min=X: minimum length/value
+// - max=X: maximum length/value
+// - username: custom validator for usernames (letters, numbers, underscores only)
+
+type UserDTO struct {
+    UserName string `json:"user_name" validate:"required,username"`
+    Email    string `json:"email" validate:"required,email"`
+    Password string `json:"password" validate:"required,min=8"`
+    Age      int    `json:"age" validate:"required,min=18,max=120"`
+    Bio      string `json:"bio" validate:"required,min=10,max=255"`
+}
+```
+
+### Adding Custom Validators
+In `internal/validator/playground.go`:
+
+```go
+// Register custom validator
+v.RegisterValidation("phone", func(fl validator.FieldLevel) bool {
+    phone := fl.Field().String()
+    // E.164 format validation
+    matched, _ := regexp.MatchString(`^\+[1-9]\d{1,14}$`, phone)
+    return matched
+})
+```
+
+## Testing
+
+### Unit Tests
+Create test files alongside implementations with `_test.go` suffix:
+
+```go
+// internal/api/auction_handlers_test.go
+package api
+
+import (
+    "testing"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/mock"
+)
+
+func TestHandleCreateAuction_Success(t *testing.T) {
+    // Arrange
+    api, mockService := setupTestAPI()
+
+    reqBody := dto.CreateAuctionReq{
+        Title:       "Test Auction",
+        Description: "This is a test auction description",
+        StartPrice:  100.00,
+        EndTime:     "2024-12-31T23:59:59Z",
+    }
+
+    expectedAuction := &dto.AuctionResponse{
+        ID:          "123e4567-e89b-12d3-a456-426614174000",
+        Title:       reqBody.Title,
+        Description: reqBody.Description,
+        StartPrice:  reqBody.StartPrice,
+    }
+
+    mockService.On("CreateAuction", mock.Anything, reqBody).
+        Return(expectedAuction, nil)
+
+    bodyBytes, _ := json.Marshal(reqBody)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/auctions",
+        bytes.NewReader(bodyBytes))
+    req.Header.Set("Content-Type", "application/json")
+
+    recorder := httptest.NewRecorder()
+
+    // Act
+    api.Router.ServeHTTP(recorder, req)
+
+    // Assert
+    assert.Equal(t, http.StatusCreated, recorder.Code)
+
+    var response dto.AuctionResponse
+    err := json.Unmarshal(recorder.Body.Bytes(), &response)
+    require.NoError(t, err)
+
+    assert.Equal(t, expectedAuction.ID, response.ID)
+    assert.Equal(t, expectedAuction.Title, response.Title)
+    mockService.AssertExpectations(t)
+}
+
+func TestHandleCreateAuction_ValidationError(t *testing.T) {
+    // Test with invalid input
+    api, _ := setupTestAPI()
+
+    reqBody := dto.CreateAuctionReq{
+        Title:       "ab",  // Too short
+        Description: "short", // Too short
+        StartPrice:  -10,    // Negative price
+    }
+
+    bodyBytes, _ := json.Marshal(reqBody)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/auctions",
+        bytes.NewReader(bodyBytes))
+    req.Header.Set("Content-Type", "application/json")
+
+    recorder := httptest.NewRecorder()
+
+    // Act
+    api.Router.ServeHTTP(recorder, req)
+
+    // Assert
+    assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+
+    var response map[string]interface{}
+    err := json.Unmarshal(recorder.Body.Bytes(), &response)
+    require.NoError(t, err)
+
+    assert.Equal(t, "Validation failed", response["error"])
+    assert.NotNil(t, response["fields"])
+}
+```
+
+### Integration Tests with Database
+Create integration tests in `internal/api/integration_test.go`:
+
+```go
+// +build integration
+
+package api
+
+func (suite *IntegrationTestSuite) TestCreateAuction_RealDatabase() {
+    // Arrange
+    reqBody := dto.CreateAuctionReq{
+        Title:       "Integration Test Auction",
+        Description: "Testing with real database connection",
+        StartPrice:  50.00,
+        EndTime:     time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+    }
+
+    bodyBytes, _ := json.Marshal(reqBody)
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/auctions",
+        bytes.NewReader(bodyBytes))
+    req.Header.Set("Content-Type", "application/json")
+
+    recorder := httptest.NewRecorder()
+
+    // Act
+    suite.api.Router.ServeHTTP(recorder, req)
+
+    // Assert
+    assert.Equal(suite.T(), http.StatusCreated, recorder.Code)
+
+    var response dto.AuctionResponse
+    err := json.Unmarshal(recorder.Body.Bytes(), &response)
+    require.NoError(suite.T(), err)
+
+    // Verify in database
+    ctx := context.Background()
+    var title string
+    err = suite.pool.QueryRow(ctx,
+        "SELECT title FROM auctions WHERE id = $1",
+        response.ID).Scan(&title)
+    require.NoError(suite.T(), err)
+    assert.Equal(suite.T(), reqBody.Title, title)
+}
+```
+
+### Running Tests
+```bash
+# Unit tests only
+make test
+
+# Integration tests (requires database)
+make test-integration
+
+# All tests including integration
+make test-all
+
+# With coverage
+make test-cover
+
+# PowerShell
+./run-tests.ps1 all        # Unit tests
+./run-tests.ps1 integration # Integration tests
+./run-tests.ps1 full        # All tests
+
+# Bash
+./run-tests.sh all
+./run-tests.sh integration
+./run-tests.sh full
+```
+
+## Database Operations
+
+### Database Migrations with Tern
+
+#### Creating a New Migration
+1. Navigate to the migrations directory:
+```bash
+cd ./internal/store/pgstore/migrations
+```
+
+2. Create a new migration file:
+```bash
+tern new nome_migration
+```
+This will generate a new SQL file with a timestamp prefix (e.g., `003_nome_migration.sql`)
+
+3. Edit the migration file with your SQL:
+```sql
+-- Example: 003_create_auctions_table.sql
+
+-- Migration UP (create/alter tables)
+CREATE TABLE IF NOT EXISTS auctions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    start_price DECIMAL(10, 2) NOT NULL CHECK (start_price > 0),
+    current_price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_auctions_user_id ON auctions(user_id);
+CREATE INDEX idx_auctions_status ON auctions(status);
+CREATE INDEX idx_auctions_end_time ON auctions(end_time);
+
+---- create above / drop below ----
+
+-- Migration DOWN (rollback changes)
+DROP TABLE IF EXISTS auctions;
+```
+
+**IMPORTANT**: The separator line `---- create above / drop below ----` divides:
+- **Above**: Migration UP commands (creating/altering tables)
+- **Below**: Migration DOWN commands (rollback/dropping tables)
+
+4. Apply the migration to the database:
+```bash
+# Must run from project root to access .env file
+go run ./cmd/terndotend/main.go
+
+# Or if you built the binary
+./terndotend.exe
+```
+
+#### Migration Best Practices
+- Always include both UP and DOWN migrations
+- Test rollback with `tern migrate -d -1` before committing
+- Use `IF NOT EXISTS` and `IF EXISTS` clauses for safety
+- Include indexes for foreign keys and commonly queried fields
+- Add CHECK constraints for data validation at database level
+
+#### Common Migration Examples
+
+**Adding a new column:**
+```sql
+-- UP
+ALTER TABLE users ADD COLUMN phone VARCHAR(20);
+
+---- create above / drop below ----
+
+-- DOWN
+ALTER TABLE users DROP COLUMN phone;
+```
+
+**Creating an index:**
+```sql
+-- UP
+CREATE INDEX idx_users_email ON users(email);
+
+---- create above / drop below ----
+
+-- DOWN
+DROP INDEX IF EXISTS idx_users_email;
+```
+
+**Adding a foreign key:**
+```sql
+-- UP
+ALTER TABLE bids
+ADD CONSTRAINT fk_bids_auction
+FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE;
+
+---- create above / drop below ----
+
+-- DOWN
+ALTER TABLE bids DROP CONSTRAINT IF EXISTS fk_bids_auction;
+```
+
+### Using SQLC for Code Generation
+
+SQLC generates type-safe Go code from SQL queries. Configuration is in `internal/store/pgstore/sqlc.yml`.
+
+#### Writing SQLC Queries
+
+1. Create SQL query files in `internal/store/pgstore/queries/` following SQLC patterns:
+
+**Basic Query Patterns:**
+
+```sql
+-- internal/store/pgstore/queries/auctions.sql
+
+-- name: CreateAuction :one
+-- Creates a new auction and returns the created row
+INSERT INTO auctions (
+    user_id, title, description, start_price, end_time
+) VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: GetAuctionByID :one
+-- Retrieves a single auction by ID
+SELECT * FROM auctions
+WHERE id = $1;
+
+-- name: ListActiveAuctions :many
+-- Returns all active auctions
+SELECT * FROM auctions
+WHERE status = 'active'
+  AND end_time > CURRENT_TIMESTAMP
+ORDER BY created_at DESC;
+
+-- name: UpdateAuctionPrice :exec
+-- Updates the current price of an auction
+UPDATE auctions
+SET current_price = $2,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1;
+
+-- name: DeleteAuction :exec
+-- Deletes an auction
+DELETE FROM auctions
+WHERE id = $1;
+
+-- name: CountUserAuctions :one
+-- Returns the count of auctions for a user
+SELECT COUNT(*) FROM auctions
+WHERE user_id = $1;
+```
+
+#### SQLC Query Annotations
+
+- **`:one`** - Returns exactly one row (`*Auction, error`)
+- **`:many`** - Returns zero or more rows (`[]Auction, error`)
+- **`:exec`** - Executes without returning rows (`error`)
+- **`:execrows`** - Executes and returns affected rows count (`int64, error`)
+- **`:execresult`** - Returns sql.Result (`sql.Result, error`)
+- **`:copyfrom`** - PostgreSQL COPY for bulk inserts
+
+#### Named Parameters (Recommended)
+
+Use `@parameter_name` for better readability:
+
+```sql
+-- name: CreateAuctionNamed :one
+INSERT INTO auctions (
+    user_id,
+    title,
+    description,
+    start_price,
+    end_time
+) VALUES (
+    @user_id,
+    @title,
+    @description,
+    @start_price,
+    @end_time
+)
+RETURNING *;
+
+-- name: UpdateAuctionNamed :exec
+UPDATE auctions SET
+    title = @title,
+    description = @description,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = @auction_id
+  AND user_id = @user_id;  -- Ensure user owns the auction
+```
+
+This generates structs with named fields:
+```go
+type CreateAuctionNamedParams struct {
+    UserID      uuid.UUID
+    Title       string
+    Description string
+    StartPrice  float64
+    EndTime     time.Time
+}
+```
+
+#### Advanced SQLC Patterns
+
+**Using LIKE with parameters:**
+```sql
+-- name: SearchAuctions :many
+SELECT * FROM auctions
+WHERE title ILIKE '%' || @search_term || '%'
+   OR description ILIKE '%' || @search_term || '%'
+ORDER BY created_at DESC
+LIMIT @limit_value OFFSET @offset_value;
+```
+
+**JOIN queries:**
+```sql
+-- name: GetAuctionWithBids :many
+SELECT
+    a.*,
+    b.id as bid_id,
+    b.amount as bid_amount,
+    b.created_at as bid_created_at,
+    u.user_name as bidder_name
+FROM auctions a
+LEFT JOIN bids b ON a.id = b.auction_id
+LEFT JOIN users u ON b.user_id = u.id
+WHERE a.id = $1
+ORDER BY b.amount DESC;
+```
+
+**Using COALESCE and aggregates:**
+```sql
+-- name: GetAuctionStats :one
+SELECT
+    COUNT(DISTINCT b.id) as total_bids,
+    COUNT(DISTINCT b.user_id) as total_bidders,
+    COALESCE(MAX(b.amount), a.start_price) as highest_bid,
+    a.start_price,
+    a.end_time
+FROM auctions a
+LEFT JOIN bids b ON a.id = b.auction_id
+WHERE a.id = $1
+GROUP BY a.id, a.start_price, a.end_time;
+```
+
+**Batch operations:**
+```sql
+-- name: GetAuctionsByIDs :many
+SELECT * FROM auctions
+WHERE id = ANY(@auction_ids::uuid[]);
+```
+
+**Upsert (INSERT ON CONFLICT):**
+```sql
+-- name: UpsertUserProfile :one
+INSERT INTO user_profiles (user_id, bio, avatar_url)
+VALUES (@user_id, @bio, @avatar_url)
+ON CONFLICT (user_id)
+DO UPDATE SET
+    bio = EXCLUDED.bio,
+    avatar_url = EXCLUDED.avatar_url,
+    updated_at = CURRENT_TIMESTAMP
+RETURNING *;
+```
+
+#### Generating Go Code
+
+After writing queries, generate the Go code:
+
+```bash
+# From project root
+sqlc generate -f ./internal/store/pgstore/sqlc.yml
+
+# Or if sqlc.yaml is in the default location
+sqlc generate
+```
+
+This generates files in `internal/store/pgstore/`:
+- `models.go` - Structs matching database tables
+- `auctions.sql.go` - Generated functions for auction queries
+- `users.sql.go` - Generated functions for user queries
+- `db.go` - Database interface
+- `querier.go` - Interface with all query methods
+
+#### SQLC Configuration (sqlc.yml)
+
+```yaml
+version: 2
+
+sql:
+  - engine: "postgresql"
+    queries: "./queries"      # Where to find SQL queries
+    schema: "./migrations"    # Database schema from migrations
+    gen:
+      go:
+        emit_json_tags: true  # Add json tags to structs
+        out: "."              # Output to current directory (pgstore)
+        package: "pgstore"    # Package name
+        sql_package: "pgx/v5" # Use pgx/v5 driver
+        overrides:
+          # Map PostgreSQL UUID to Go UUID type
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+          # Map timestamptz to time.Time
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+```
+
+#### Using Generated Code in Services
+
+```go
+// internal/services/auction_service.go
+type AuctionService struct {
+    pool    *pgxpool.Pool
+    queries *pgstore.Queries
+}
+
+func NewAuctionService(pool *pgxpool.Pool) *AuctionService {
+    return &AuctionService{
+        pool:    pool,
+        queries: pgstore.New(pool),
+    }
+}
+
+func (s *AuctionService) CreateAuction(ctx context.Context, req dto.CreateAuctionReq, userID uuid.UUID) (*dto.AuctionResponse, error) {
+    // Using positional parameters
+    auction, err := s.queries.CreateAuction(ctx, pgstore.CreateAuctionParams{
+        UserID:      userID,
+        Title:       req.Title,
+        Description: req.Description,
+        StartPrice:  req.StartPrice,
+        EndTime:     req.EndTime,
+    })
+
+    // Or using named parameters if defined
+    auction, err := s.queries.CreateAuctionNamed(ctx, pgstore.CreateAuctionNamedParams{
+        UserID:      userID,
+        Title:       req.Title,
+        Description: req.Description,
+        StartPrice:  req.StartPrice,
+        EndTime:     req.EndTime,
+    })
+
+    if err != nil {
+        return nil, fmt.Errorf("failed to create auction: %w", err)
+    }
+
+    return &dto.AuctionResponse{
+        ID:          auction.ID.String(),
+        Title:       auction.Title,
+        Description: auction.Description,
+        StartPrice:  auction.StartPrice,
+        Status:      auction.Status,
+        CreatedAt:   auction.CreatedAt.Format(time.RFC3339),
+    }, nil
+}
+```
+
+#### SQLC Best Practices
+
+1. **Always add comments** above queries to document their purpose
+2. **Use named parameters** for queries with many parameters
+3. **Validate at database level** with CHECK constraints in migrations
+4. **Use transactions** for multiple related operations:
+   ```go
+   tx, err := s.pool.Begin(ctx)
+   if err != nil {
+       return err
+   }
+   defer tx.Rollback(ctx)
+
+   qtx := s.queries.WithTx(tx)
+   // Use qtx for all operations in transaction
+
+   if err := tx.Commit(ctx); err != nil {
+       return err
+   }
+   ```
+
+5. **Handle specific PostgreSQL errors**:
+   ```go
+   if err != nil {
+       var pgErr *pgconn.PgError
+       if errors.As(err, &pgErr) {
+           switch pgErr.Code {
+           case "23505": // unique_violation
+               return ErrDuplicateEntry
+           case "23503": // foreign_key_violation
+               return ErrInvalidReference
+           }
+       }
+       return err
+   }
+   ```
+
+#### Workflow Summary
+
+1. **Create/modify schema** → Run migrations with tern
+2. **Write SQL queries** → In `internal/store/pgstore/queries/`
+3. **Generate Go code** → Run `sqlc generate -f ./internal/store/pgstore/sqlc.yml`
+4. **Use in services** → Import and use generated functions
+
+#### Useful SQLC Documentation
+- Main docs: https://docs.sqlc.dev/en/latest/
+- Named parameters: https://docs.sqlc.dev/en/latest/howto/named_parameters.html
+- Query annotations: https://docs.sqlc.dev/en/latest/reference/query-annotations.html
+- Type overrides: https://docs.sqlc.dev/en/latest/howto/overrides.html
+
+### Using SQLC Generated Code
+
+After generating code with SQLC:
+```go
+type AuctionService struct {
+    pool    *pgxpool.Pool
+    queries *pgstore.Queries
+}
+
+func (s *AuctionService) CreateAuction(ctx context.Context, req dto.CreateAuctionReq, userID uuid.UUID) (*dto.AuctionResponse, error) {
+    auction, err := s.queries.CreateAuction(ctx, pgstore.CreateAuctionParams{
+        Title:       req.Title,
+        Description: req.Description,
+        StartPrice:  req.StartPrice,
+        EndTime:     req.EndTime,
+        UserID:      userID,
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    return &dto.AuctionResponse{
+        ID:          auction.ID.String(),
+        Title:       auction.Title,
+        Description: auction.Description,
+        StartPrice:  auction.StartPrice,
+    }, nil
+}
+```
+
+## Error Handling
+
+### Service Layer Errors
+Define domain-specific errors in service packages:
+```go
+var (
+    ErrAuctionNotFound    = errors.New("auction not found")
+    ErrAuctionExpired     = errors.New("auction has expired")
+    ErrInsufficientBid    = errors.New("bid amount too low")
+    ErrUnauthorized       = errors.New("unauthorized")
+)
+```
+
+### Error Response Format
+Consistent error responses:
+```json
+// Validation errors (422)
+{
+    "error": "Validation failed",
+    "fields": {
+        "title": "must be at least 3 characters",
+        "start_price": "must be greater than 0"
+    }
+}
+
+// Business logic errors (400, 401, 404)
+{
+    "error": "auction has expired"
+}
+
+// Internal errors (500)
+{
+    "error": "internal server error"
+}
+```
+
+## Environment Variables
+Required environment variables in `.env`:
+```env
+GOBID_DATABASE_PORT=5580
+GOBID_DATABASE_NAME="gobid"
+GOBID_DATABASE_USER="ADM"
+GOBID_DATABASE_PASSWORD="2104"
+GOBID_DATABASE_HOST="localhost"
+GOBID_CSRF_KEY="<32-character-random-string>"
+```
+
+## Docker Setup
+PostgreSQL runs in Docker:
+```yaml
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - "5580:5432"
+    environment:
+      POSTGRES_USER: ADM
+      POSTGRES_PASSWORD: 2104
+      POSTGRES_DB: gobid
+```
+
+## Swagger Documentation
+
+### Generating Docs
+```bash
+swag init -g cmd/api/main.go -o docs
+```
+
+### Accessing Documentation
+- UI: http://localhost:3080/swagger/index.html  
+- JSON para clientes/`ng-openapi-gen`: http://localhost:3080/swagger/doc.json (convertido automaticamente para OpenAPI 3.0.x em tempo de execução).
+
+### Main API Annotations
+In `cmd/api/main.go`:
+```go
+// @title           FlyTwo Pro API
+// @version         1.0
+// @description     FlyTwo Pro Backend API
+// @host            localhost:3080
+// @BasePath        /api/v1
+// @schemes         http https
+```
+
+## Session Management
+Sessions are managed with scs/v2 and require gob registration for custom types:
+```go
+// Register UUID type for session storage
+gob.Register(uuid.UUID{})
+
+// Store in session
+api.Sessions.Put(r.Context(), "user_id", userID)
+
+// Retrieve from session
+userID := api.Sessions.Get(r.Context(), "user_id").(uuid.UUID)
+
+// Check if exists
+if api.Sessions.Exists(r.Context(), "user_id") {
+    // User is logged in
+}
+
+// Remove from session
+api.Sessions.Remove(r.Context(), "user_id")
+```
+
+## Middleware
+
+### Authentication Middleware
+```go
+func (api *Api) AuthenticationRequired(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if !api.Sessions.Exists(r.Context(), "user_id") {
+            api.logger.Warn("Unauthorized access attempt",
+                zap.String("path", r.URL.Path),
+                zap.String("method", r.Method))
+
+            _ = jsonutils.EncodeJson(w, http.StatusUnauthorized, map[string]string{
+                "error": "authentication required",
+            })
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+## Git Commit Guidelines
+When committing:
+- Test changes with `make test` before committing
+- Include clear commit messages
+- Auto-generated commits will include:
+  ```
+  🤖 Generated with Claude Code
+
+  Co-Authored-By: Claude <noreply@anthropic.com>
+  ```
+
+## Common Commands
+
+### Development
+```bash
+# Run server
+go run cmd/api/main.go
+
+# Build
+go build -o gobid.exe cmd/api/main.go
+
+# Format code
+go fmt ./...
+
+# Run linter
+go vet ./...
+
+# Update dependencies
+go mod tidy
+```
+
+### Testing
+```bash
+# Run all unit tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run specific package tests
+go test ./internal/api -v
+
+# Run integration tests (needs DB)
+RUN_INTEGRATION_TESTS=true go test ./internal/api -tags=integration -v
+```
+
+## Troubleshooting
+
+### Common Issues
+1. **Database connection errors**: Ensure PostgreSQL is running on port 5580
+2. **Validation field name mismatch**: Remember validator converts to snake_case
+3. **Session errors in tests**: Register UUID type with gob and setup session context
+4. **Swagger not updating**: Regenerate with `swag init`
+
+### Debug Tips
+- Check logs with zap logger output
+- Use DEBUG level for detailed validation errors
+- Integration tests show actual database operations
+- Mock services for unit testing isolation

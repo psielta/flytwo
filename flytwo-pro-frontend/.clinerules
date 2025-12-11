@@ -1,0 +1,228 @@
+# FlyTwo Pro Frontend - Convencoes e Diretrizes
+
+## Visao Geral
+Dashboard administrativo Angular para FlyTwo Pro, usando Angular Material e integracao com API Go via ng-openapi-gen.
+
+## Tech Stack
+| Tecnologia | Versao | Descricao |
+|------------|--------|-----------|
+| Angular | 21.x | Framework principal |
+| Angular Material | 21.x | Biblioteca de UI |
+| ng-openapi-gen | latest | Gerador de cliente HTTP |
+| RxJS | 7.8.x | Programacao reativa |
+| TypeScript | 5.9.x | Linguagem |
+
+## Estrutura do Projeto
+```
+src/app/
+├── api/              # [GERADO] Codigo do ng-openapi-gen - NAO EDITAR
+├── core/             # Servicos singleton, guards, interceptors
+├── features/         # Paginas/modulos de funcionalidades
+├── shared/           # Componentes reutilizaveis, layouts
+└── app.config.ts     # Configuracao de providers
+```
+
+## Padroes de Codigo
+
+### Componentes
+- SEMPRE usar standalone components
+- Imports diretos no decorator @Component
+- Usar signals para estado reativo
+- Naming: `feature.component.ts`
+
+Exemplo:
+```typescript
+@Component({
+  selector: 'app-login',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatCardModule],
+  templateUrl: './login.component.html',
+  styleUrl: './login.component.scss'
+})
+export class LoginComponent {
+  private readonly authService = inject(AuthService);
+  isLoading = signal(false);
+}
+```
+
+### Services
+- Usar `inject()` em vez de constructor injection
+- Usar signals para estado
+- Retornar Observables para operacoes async
+
+### Guards
+- Usar functional guards (CanActivateFn)
+- Naming: `auth.guard.ts`, `guest.guard.ts`
+
+Exemplo:
+```typescript
+export const authGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (authService.isAuthenticated()) {
+    return true;
+  }
+  return router.createUrlTree(['/login']);
+};
+```
+
+### Rotas
+- Usar estrutura hierarquica com layouts
+- Guards em rotas pai
+- Componentes standalone
+
+### Formularios
+- Usar Reactive Forms com FormBuilder
+- Validacao no template e no componente
+- Feedback visual com Material
+
+## API Integration
+
+### Regenerar Cliente API
+Quando o backend atualizar endpoints:
+```bash
+npm run api:generate
+```
+
+### Configuracao
+- URL da API: `http://localhost:3080/api/v1`
+- OpenAPI spec: `http://localhost:3080/swagger/doc.json`
+- Cookies: `withCredentials: true` (interceptor)
+
+### Arquivos Gerados (NAO EDITAR)
+- `src/app/api/models/*.ts`
+- `src/app/api/fn/*.ts`
+- `src/app/api/api.ts`
+- `src/app/api/api-configuration.ts`
+
+## Adicionando Novas Features
+
+### Nova Rota Publica
+1. Criar componente em `features/`
+2. Adicionar rota como child de AuthLayoutComponent
+3. Usar `guestGuard` se necessario
+
+### Nova Rota Protegida
+1. Criar componente em `features/`
+2. Adicionar rota como child de MainLayoutComponent
+3. `authGuard` ja esta aplicado no pai
+
+### Novo Componente Compartilhado
+1. Criar em `shared/components/`
+2. Exportar como standalone
+3. Importar onde necessario
+
+## Angular Material
+
+### Tema
+- Material Design 3 com paleta azure/rose
+- Light theme: padrao
+- Dark theme: classe `dark-theme` no `<html>`
+- Customizacoes em `styles.scss`
+
+### Componentes Comuns
+- Cards: `MatCardModule`
+- Forms: `MatFormFieldModule`, `MatInputModule`
+- Buttons: `MatButtonModule`
+- Layout: `MatToolbarModule`, `MatSidenavModule`
+- Feedback: `MatSnackBarModule`, `MatProgressSpinnerModule`
+- Icons: `MatIconModule`
+
+## Autenticacao
+
+### Fluxo
+1. Login envia credentials -> backend retorna cookie
+2. Cookie enviado automaticamente (withCredentials)
+3. AuthService verifica /me para estado de auth
+4. Guards protegem rotas
+
+### Login - Implementacao Correta
+```typescript
+// auth.service.ts - usar switchMap para aguardar /me
+login(credentials): Observable<boolean> {
+  return from(this.api.invoke(usersLoginPost, { body: credentials })).pipe(
+    switchMap(() => from(this.api.invoke(usersMeGet))), // Aguarda /me
+    map((user) => {
+      this._user.set(user);
+      this._isLoading.set(false);
+      return true;
+    }),
+    catchError((err) => {
+      this._isLoading.set(false);
+      return of(false);
+    })
+  );
+}
+```
+
+### Logout - Implementacao Correta
+```typescript
+// auth.service.ts - redireciona automaticamente
+logout(): Observable<boolean> {
+  this._user.set(null); // Limpa estado ANTES da requisicao
+  return from(this.api.invoke(usersLogoutPost)).pipe(
+    map(() => {
+      this.router.navigate(['/login']); // Redirect automatico
+      return true;
+    }),
+    catchError(() => {
+      this.router.navigate(['/login']); // Redirect mesmo em erro
+      return of(true);
+    })
+  );
+}
+```
+
+### Loading State em Formularios
+- Usar signal local `isSubmitting` no componente
+- Combinar com `authService.isLoading()` via computed
+- Manter loading ate redirect completar (nao resetar em sucesso)
+
+### Estado
+- `AuthService.isAuthenticated()` - signal booleano (computed de user)
+- `AuthService.user()` - signal com dados do usuario
+- `AuthService.initialized()` - evita multiplas chamadas checkAuth
+- Persistencia via cookie HttpOnly (gerenciado pelo backend)
+
+### Evitando Loops de 401
+- Error interceptor ignora 401 em `/users/me`
+- Guards verificam `initialized()` antes de chamar `checkAuth()`
+- `checkAuth()` usa `shareReplay(1)` para evitar requisicoes duplicadas
+
+## Comandos Uteis
+
+```bash
+# Desenvolvimento
+npm start                 # Servidor dev em localhost:4200
+
+# API
+npm run api:generate      # Regenerar cliente da API
+
+# Build
+npm run build            # Build de producao
+
+# Testes
+npm test                 # Executar testes
+```
+
+## Troubleshooting
+
+### Erro de CORS
+- Verificar se backend esta rodando em localhost:3080
+- Verificar se CORS esta configurado no backend
+
+### Cookie nao enviado
+- Verificar `withCredentials: true` no interceptor
+- Verificar se `AllowCredentials: true` no CORS do backend
+
+### API desatualizada
+- Executar `npm run api:generate`
+- Verificar se backend esta rodando
+
+## Convencoes de Commit
+- feat: nova funcionalidade
+- fix: correcao de bug
+- refactor: refatoracao
+- docs: documentacao
+- style: formatacao
