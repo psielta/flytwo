@@ -28,18 +28,32 @@
 
 ### Arquitetura do Sistema
 
+#### Backends
+
 O projeto é dividido em dois backends com responsabilidades distintas:
 
 | Componente | Tecnologia | Responsabilidade |
 |------------|------------|------------------|
 | **FlyTwo Backend** | ASP.NET Core 8 | Dados do usuário (autenticação, perfil, configurações) |
 | **FlyTwo Pro Backend** | Go (Chi + sqlc) | Dados de pesquisa (CATMAT/CATSER, preços, cotações) |
-| **FlyTwo Pro Frontend** | Angular 21 | Admin para importação de dados e planilhas |
 
 Esta separação foi escolhida para:
 - **Performance**: Go oferece melhor desempenho para consultas de grande volume de dados (catálogos CATMAT/CATSER)
 - **Isolamento**: Banco de dados separado para dados de pesquisa vs dados do usuário
 - **Escalabilidade**: Cada serviço pode escalar independentemente
+
+#### Frontends
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **FlyTwo Frontend** | React 19 | Interface principal para usuários finais |
+| **FlyTwo Pro Frontend** | Angular 21 | Admin para importação de dados e planilhas |
+
+#### Mobile
+
+| Componente | Tecnologia | Responsabilidade |
+|------------|------------|------------------|
+| **FlyTwo Mobile** | React Native + Expo | App mobile para usuários finais |
 
 ### FlyTwo Pro - Serviço de Pesquisa
 
