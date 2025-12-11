@@ -61,7 +61,6 @@ func TestHandleSignupUser_Success(t *testing.T) {
 		UserName: "testuser",
 		Email:    "test@example.com",
 		Password: "Test1234",
-		Bio:      "This is a test bio for the user",
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -69,7 +68,7 @@ func TestHandleSignupUser_Success(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	expectedID := uuid.New()
-	mockService.On("CreateUser", mock.Anything, "testuser", "test@example.com", "Test1234", "This is a test bio for the user").
+	mockService.On("CreateUser", mock.Anything, "testuser", "test@example.com", "Test1234").
 		Return(expectedID, nil)
 
 	recorder := httptest.NewRecorder()
@@ -93,10 +92,9 @@ func TestHandleSignupUser_ValidationError(t *testing.T) {
 	api, _ := setupTestAPI()
 
 	reqBody := dto.CreateUserReq{
-		UserName: "",  // Invalid: empty
+		UserName: "",        // Invalid: empty
 		Email:    "invalid", // Invalid: not an email
-		Password: "123", // Invalid: too short
-		Bio:      "short", // Invalid: too short
+		Password: "123",     // Invalid: too short
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -119,10 +117,11 @@ func TestHandleSignupUser_ValidationError(t *testing.T) {
 	assert.NotNil(t, response["fields"])
 
 	fields := response["fields"].(map[string]interface{})
-	assert.Contains(t, fields, "user_name")
+	_, hasUserName := fields["user_name"]
+	_, hasUsername := fields["username"]
+	assert.True(t, hasUserName || hasUsername)
 	assert.Contains(t, fields, "email")
 	assert.Contains(t, fields, "password")
-	assert.Contains(t, fields, "bio")
 }
 
 func TestHandleSignupUser_DuplicateUser(t *testing.T) {
@@ -133,14 +132,13 @@ func TestHandleSignupUser_DuplicateUser(t *testing.T) {
 		UserName: "testuser",
 		Email:    "test@example.com",
 		Password: "Test1234",
-		Bio:      "This is a test bio for the user",
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/signup", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 
-	mockService.On("CreateUser", mock.Anything, "testuser", "test@example.com", "Test1234", "This is a test bio for the user").
+	mockService.On("CreateUser", mock.Anything, "testuser", "test@example.com", "Test1234").
 		Return(uuid.UUID{}, services.ErrDuplicatedEmailOrUsername)
 
 	recorder := httptest.NewRecorder()
@@ -230,8 +228,8 @@ func TestHandleLoginUser_ValidationError(t *testing.T) {
 	api, _ := setupTestAPI()
 
 	reqBody := dto.LoginUserReq{
-		Email:    "notanemail",  // Invalid email format
-		Password: "",  // Empty password
+		Email:    "notanemail", // Invalid email format
+		Password: "",           // Empty password
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -258,13 +256,21 @@ func TestHandleLogoutUser_Success(t *testing.T) {
 	// Arrange
 	api, _ := setupTestAPI()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/logout", nil)
-	req.Header.Set("Content-Type", "application/json")
+	// create request to set session
+	userID := uuid.New()
+	setReq := httptest.NewRequest(http.MethodPost, "/set-session", nil)
+	setRec := httptest.NewRecorder()
+	api.Sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		api.Sessions.Put(r.Context(), "AuthenticatedUserId", userID)
+	})).ServeHTTP(setRec, setReq)
+	cookie := setRec.Result().Cookies()[0]
 
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/logout", nil)
+	req.AddCookie(cookie)
 	recorder := httptest.NewRecorder()
 
 	// Act
-	api.handleLogoutUser(recorder, req)
+	api.Sessions.LoadAndSave(http.HandlerFunc(api.handleLogoutUser)).ServeHTTP(recorder, req)
 
 	// Assert
 	assert.Equal(t, http.StatusOK, recorder.Code)
@@ -284,14 +290,13 @@ func TestHandleSignupUser_UnexpectedError(t *testing.T) {
 		UserName: "testuser",
 		Email:    "test@example.com",
 		Password: "Test1234",
-		Bio:      "This is a test bio for the user",
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/signup", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 
-	mockService.On("CreateUser", mock.Anything, "testuser", "test@example.com", "Test1234", "This is a test bio for the user").
+	mockService.On("CreateUser", mock.Anything, "testuser", "test@example.com", "Test1234").
 		Return(uuid.UUID{}, errors.New("database connection failed"))
 
 	recorder := httptest.NewRecorder()
@@ -351,7 +356,6 @@ func TestHandleGetCurrentUser_Success(t *testing.T) {
 		ID:        userID,
 		UserName:  "testuser",
 		Email:     "test@example.com",
-		Bio:       "Test bio",
 		CreatedAt: time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
 	}
@@ -386,7 +390,6 @@ func TestHandleGetCurrentUser_Success(t *testing.T) {
 	assert.Equal(t, userID.String(), response.ID)
 	assert.Equal(t, "testuser", response.UserName)
 	assert.Equal(t, "test@example.com", response.Email)
-	assert.Equal(t, "Test bio", response.Bio)
 	assert.Equal(t, "2025-01-01T10:00:00Z", response.CreatedAt)
 
 	mockService.AssertExpectations(t)

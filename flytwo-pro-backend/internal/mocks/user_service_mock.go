@@ -14,8 +14,8 @@ type MockUserService struct {
 }
 
 // CreateUser mocks the CreateUser method
-func (m *MockUserService) CreateUser(ctx context.Context, username, email, password, bio string) (uuid.UUID, error) {
-	args := m.Called(ctx, username, email, password, bio)
+func (m *MockUserService) CreateUser(ctx context.Context, username, email, password string) (uuid.UUID, error) {
+	args := m.Called(ctx, username, email, password)
 	return args.Get(0).(uuid.UUID), args.Error(1)
 }
 

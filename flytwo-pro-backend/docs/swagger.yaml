@@ -35,6 +35,26 @@ definitions:
       user_name:
         type: string
     type: object
+  services.ImportResult:
+    properties:
+      errors:
+        items:
+          $ref: '#/definitions/services.RowError'
+        type: array
+      rows_read:
+        type: integer
+      rows_saved:
+        type: integer
+      rows_skipped:
+        type: integer
+    type: object
+  services.RowError:
+    properties:
+      reason:
+        type: string
+      row:
+        type: integer
+    type: object
 host: localhost:3080
 info:
   contact:
@@ -49,6 +69,68 @@ info:
   title: FlyTwo Pro API
   version: "1.0"
 paths:
+  /catmat/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Faz upsert dos itens da planilha para a tabela catmat_item
+      parameters:
+      - description: Arquivo .xlsx com colunas do CATMAT
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.ImportResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Importa planilha CATMAT (XLSX)
+      tags:
+      - catmat
+  /catser/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Faz upsert dos itens da planilha para a tabela catser_item
+      parameters:
+      - description: Arquivo .xlsx com colunas do CATSER
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.ImportResult'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Importa planilha CATSER (XLSX)
+      tags:
+      - catser
   /users/login:
     post:
       consumes:

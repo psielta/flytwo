@@ -24,6 +24,98 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/catmat/import": {
+            "post": {
+                "description": "Faz upsert dos itens da planilha para a tabela catmat_item",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catmat"
+                ],
+                "summary": "Importa planilha CATMAT (XLSX)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Arquivo .xlsx com colunas do CATMAT",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/services.ImportResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/catser/import": {
+            "post": {
+                "description": "Faz upsert dos itens da planilha para a tabela catser_item",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catser"
+                ],
+                "summary": "Importa planilha CATSER (XLSX)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Arquivo .xlsx com colunas do CATSER",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/services.ImportResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/users/login": {
             "post": {
                 "description": "Authenticate a user and create a session",
@@ -258,6 +350,37 @@ const docTemplate = `{
                 },
                 "user_name": {
                     "type": "string"
+                }
+            }
+        },
+        "services.ImportResult": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.RowError"
+                    }
+                },
+                "rows_read": {
+                    "type": "integer"
+                },
+                "rows_saved": {
+                    "type": "integer"
+                },
+                "rows_skipped": {
+                    "type": "integer"
+                }
+            }
+        },
+        "services.RowError": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "row": {
+                    "type": "integer"
                 }
             }
         }
