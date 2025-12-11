@@ -5,7 +5,7 @@
 <h1 align="center">FlyTwo - Sistema de Cotação de Preços</h1>
 
 <p align="center">
-  Sistema full-stack desenvolvido com <strong>ASP.NET Core 8</strong> (backend), <strong>React 19</strong> (frontend) e <strong>React Native</strong> (mobile) para cotação de preços usando APIs públicas do governo.
+  Sistema full-stack desenvolvido com <strong>ASP.NET Core 8</strong> e <strong>Go</strong> (backends), <strong>React 19</strong> e <strong>Angular 21</strong> (frontends) e <strong>React Native</strong> (mobile) para cotação de preços usando APIs públicas do governo.
 </p>
 
 <p align="center">
