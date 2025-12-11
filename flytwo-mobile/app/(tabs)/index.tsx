@@ -64,8 +64,6 @@ export default function HomeScreen() {
         </Text>
       </Surface>
 
-      <Divider style={styles.divider} />
-
       <Surface style={styles.surface} elevation={1}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Funcionalidades
@@ -124,8 +122,5 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     paddingVertical: 2,
-  },
-  divider: {
-    marginVertical: 8,
   },
 });

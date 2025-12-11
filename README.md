@@ -72,7 +72,8 @@ Fornecer uma plataforma para cotação de preços que:
 | Expo Router | 6.0.17 | Navegação baseada em arquivos |
 | React Native Paper | 5.14.5 | UI Material Design 3 |
 | Formik + Yup | 2.4.9 / 1.7.1 | Formulários e validação |
-| AsyncStorage | 2.2.0 | Persistência local |
+| AsyncStorage | 2.2.0 | Persistência de sessão |
+| Expo SQLite | 16.0.2 | Banco de dados local |
 | NSwag | - | Geração de cliente TypeScript |
 
 ## Estrutura do Projeto
@@ -107,6 +108,7 @@ FlyTwo/
 │   │   ├── api/                  # Cliente TypeScript (NSwag)
 │   │   ├── auth/                 # Contexto de autenticação
 │   │   ├── components/           # Header, Drawer, Logo
+│   │   ├── database/             # SQLite (migrations, hooks)
 │   │   └── theme/                # Tema customizado (cores MUI)
 │   └── package.json
 │
@@ -450,6 +452,7 @@ docker exec -it flytwo-redis redis-cli ping
 - **Theme Context**: Toggle light/dark com persistência
 - **Cores MUI**: Consistência visual com frontend web
 - **NSwag**: Mesmo cliente API do frontend
+- **SQLite**: Banco local com sistema de migrations
 
 ## Licença
 

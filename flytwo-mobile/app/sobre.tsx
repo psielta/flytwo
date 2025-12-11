@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Linking } from 'react-native';
 import {
   Surface,
@@ -12,13 +13,53 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '../src/components/Logo';
+import { getDatabase, getCurrentVersion } from '../src/database';
+import { useThemeMode } from '../src/theme/ThemeContext';
 
 const APP_VERSION = '1.0.0';
 const API_URL = 'http://10.0.2.2:5110';
 
+interface DbHealth {
+  status: 'checking' | 'healthy' | 'error';
+  version: number;
+  error?: string;
+}
+
 export default function SobreScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { isDark } = useThemeMode();
+  const [dbHealth, setDbHealth] = useState<DbHealth>({ status: 'checking', version: 0 });
+
+  // Cores adaptadas para dark/light mode
+  const statusColors = {
+    healthy: {
+      bg: isDark ? '#1b5e20' : '#e8f5e9',
+      text: isDark ? '#a5d6a7' : '#2e7d32',
+    },
+    error: {
+      bg: isDark ? '#b71c1c' : '#ffebee',
+      text: isDark ? '#ef9a9a' : '#c62828',
+    },
+  };
+
+  useEffect(() => {
+    const checkDbHealth = async () => {
+      try {
+        const db = await getDatabase();
+        const version = await getCurrentVersion(db);
+        setDbHealth({ status: 'healthy', version });
+      } catch (error) {
+        setDbHealth({
+          status: 'error',
+          version: 0,
+          error: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+      }
+    };
+
+    checkDbHealth();
+  }, []);
 
   const openGitHub = () => {
     Linking.openURL('https://github.com/psielta/flytwo');
@@ -136,6 +177,52 @@ export default function SobreScreen() {
             title="Versao do App"
             description={APP_VERSION}
             left={(props) => <List.Icon {...props} icon="cellphone" />}
+          />
+          <List.Item
+            title="SQLite"
+            description={
+              dbHealth.status === 'error' && dbHealth.error
+                ? dbHealth.error
+                : undefined
+            }
+            left={(props) => <List.Icon {...props} icon="database" />}
+            right={() => (
+              <Chip
+                icon={
+                  dbHealth.status === 'checking'
+                    ? 'loading'
+                    : dbHealth.status === 'healthy'
+                    ? 'check-circle'
+                    : 'alert-circle'
+                }
+                mode="flat"
+                compact
+                style={{
+                  backgroundColor:
+                    dbHealth.status === 'checking'
+                      ? theme.colors.surfaceVariant
+                      : dbHealth.status === 'healthy'
+                      ? statusColors.healthy.bg
+                      : statusColors.error.bg,
+                  alignSelf: 'center',
+                }}
+                textStyle={{
+                  color:
+                    dbHealth.status === 'checking'
+                      ? theme.colors.onSurfaceVariant
+                      : dbHealth.status === 'healthy'
+                      ? statusColors.healthy.text
+                      : statusColors.error.text,
+                  fontSize: 12,
+                }}
+              >
+                {dbHealth.status === 'checking'
+                  ? 'Verificando...'
+                  : dbHealth.status === 'healthy'
+                  ? `OK (v${dbHealth.version})`
+                  : 'Erro'}
+              </Chip>
+            )}
           />
         </Surface>
 

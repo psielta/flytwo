@@ -10,6 +10,7 @@ Aplicativo mobile React Native para o FlyTwo, utilizando Expo, React Native Pape
 - **Formik** + **Yup** (formularios e validacao)
 - **NSwag** (geracao de cliente API TypeScript)
 - **AsyncStorage** (persistencia de dados)
+- **Expo SQLite** (banco de dados local)
 - **TypeScript**
 
 ## Pre-requisitos
@@ -74,6 +75,11 @@ flytwo-mobile/
 │   │   ├── Logo.tsx              # Componente do logo FlyTwo
 │   │   ├── AppHeader.tsx         # Header com avatar e theme toggle
 │   │   └── AppDrawer.tsx         # Drawer lateral com menu
+│   ├── database/
+│   │   ├── index.ts              # Exports centralizados
+│   │   ├── database.ts           # Conexao e inicializacao
+│   │   ├── migrations.ts         # Sistema de migrations
+│   │   └── useDatabase.ts        # Hooks para acesso ao banco
 │   └── theme/
 │       ├── index.ts              # Temas customizados (cores MUI)
 │       └── ThemeContext.tsx      # Context para theme toggle
@@ -102,6 +108,12 @@ flytwo-mobile/
 - **Cores Material UI** - Primary `#1976d2` (azul MUI)
 - **Suporte light/dark** - Toggle manual ou seguir sistema
 - **Persistencia** - Preferencia salva no AsyncStorage
+
+### Banco de Dados (SQLite)
+- **Expo SQLite** - Banco de dados local nativo
+- **Sistema de migrations** - Versionamento automatico do schema
+- **Hooks** - `useDatabase()` e `useDatabaseInstance()`
+- **Inicializacao automatica** - Banco configurado no startup do app
 
 ## Fluxo de Autenticacao
 
@@ -193,6 +205,161 @@ toggleTheme();
 setThemeMode('light');  // 'light' | 'dark' | 'system'
 ```
 
+## Banco de Dados Local (SQLite)
+
+O app utiliza **expo-sqlite** para armazenamento local, preparado para cache offline e sincronizacao futura.
+
+### Ciclo de Vida do Banco
+
+```
+App Iniciado
+     │
+     ▼
+┌─────────────────────────────────────┐
+│  _layout.tsx (AppWithTheme)         │
+│  - Chama initDatabase()             │
+│  - Exibe "Inicializando..." loading │
+└─────────────────────────────────────┘
+     │
+     ▼
+┌─────────────────────────────────────┐
+│  initDatabase() - database.ts       │
+│  1. Abre/Cria arquivo flytwo.db     │
+│  2. Configura PRAGMAs               │
+│  3. Executa runMigrations()         │
+└─────────────────────────────────────┘
+     │
+     ▼
+┌─────────────────────────────────────┐
+│  runMigrations() - migrations.ts    │
+│  1. Verifica versao atual           │
+│  2. Aplica migrations pendentes     │
+│  3. Registra versoes aplicadas      │
+└─────────────────────────────────────┘
+     │
+     ▼
+  App Pronto (dbReady = true)
+```
+
+**Quando o banco e criado:**
+- O arquivo `flytwo.db` e criado **automaticamente** na primeira execucao do app
+- Localizado no diretorio de dados privado do app (gerenciado pelo Expo/OS)
+- Nao requer nenhuma acao manual do usuario ou desenvolvedor
+
+**Quando as migrations rodam:**
+- Sempre que o app inicia, `runMigrations()` verifica se ha migrations pendentes
+- Compara a versao atual do banco (tabela `_migrations`) com as migrations definidas
+- Aplica apenas as migrations com versao maior que a atual
+- Cada migration e registrada na tabela `_migrations` apos execucao
+
+**Persistencia dos dados:**
+- Os dados persistem entre sessoes do app
+- Dados sao removidos apenas se: (1) app for desinstalado, (2) dados do app forem limpos, ou (3) `resetDatabase()` for chamado
+
+**Graceful Degradation:**
+- Se o banco falhar na inicializacao, o app continua funcionando
+- Um warning e logado no console
+- Funcionalidades que dependem do banco ficam indisponiveis
+
+### Estrutura do Database
+
+```typescript
+// src/database/database.ts
+import { initDatabase, getDatabase, closeDatabase, resetDatabase } from '../src/database';
+
+// Inicializar (chamado automaticamente no _layout.tsx)
+await initDatabase();
+
+// Obter instancia do banco
+const db = await getDatabase();
+
+// Fechar conexao
+await closeDatabase();
+
+// Resetar banco (dev/testes - APAGA TODOS OS DADOS)
+await resetDatabase();
+```
+
+### Sistema de Migrations
+
+Migrations sao executadas automaticamente na inicializacao. Para adicionar novas tabelas:
+
+```typescript
+// src/database/migrations.ts
+export const MIGRATIONS: Migration[] = [
+  {
+    version: 1,
+    description: 'Criar tabela de controle de migrations',
+    up: `CREATE TABLE IF NOT EXISTS _migrations (...)`,
+  },
+  // Adicionar novas migrations aqui:
+  {
+    version: 2,
+    description: 'Criar tabela de cache de produtos',
+    up: `
+      CREATE TABLE IF NOT EXISTS cached_products (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        synced_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `,
+  },
+];
+```
+
+### Usando o Hook useDatabase
+
+```typescript
+import { useDatabase } from '../src/database';
+
+function MyComponent() {
+  const { db, isReady, error, reset } = useDatabase();
+
+  if (!isReady) return <ActivityIndicator />;
+  if (error) return <Text>Erro: {error.message}</Text>;
+
+  const loadData = async () => {
+    if (db) {
+      // Consultar dados
+      const items = await db.getAllAsync('SELECT * FROM cached_products');
+
+      // Inserir dados
+      await db.runAsync(
+        'INSERT INTO cached_products (id, data) VALUES (?, ?)',
+        '123',
+        JSON.stringify({ name: 'Produto' })
+      );
+    }
+  };
+
+  return <Button onPress={loadData}>Carregar</Button>;
+}
+```
+
+### Hook Simplificado
+
+```typescript
+import { useDatabaseInstance } from '../src/database';
+
+function MyComponent() {
+  // Retorna apenas a instancia (assume que ja foi inicializado)
+  const db = useDatabaseInstance();
+
+  // Use quando o DatabaseProvider ja garantiu a inicializacao
+}
+```
+
+### Pragmas Configurados
+
+O banco e inicializado com as seguintes otimizacoes:
+
+```sql
+PRAGMA journal_mode = WAL;      -- Write-Ahead Logging (melhor performance)
+PRAGMA foreign_keys = ON;       -- Integridade referencial
+PRAGMA synchronous = NORMAL;    -- Balance entre seguranca e velocidade
+```
+
 ## Configuracao do Backend
 
 **Android Emulator:** O app esta configurado para usar `http://10.0.2.2:5110` que mapeia para `localhost` da maquina host.
@@ -227,7 +394,8 @@ const API_BASE_URL = 'http://192.168.x.x:5110';
   "yup": "^1.7.1",
   "@react-native-async-storage/async-storage": "^2.2.0",
   "react-native-svg": "15.12.1",
-  "expo-router": "~6.0.17"
+  "expo-router": "~6.0.17",
+  "expo-sqlite": "~16.0.2"
 }
 ```
 
@@ -242,6 +410,9 @@ const API_BASE_URL = 'http://192.168.x.x:5110';
 | `src/theme/index.ts` | Temas customizados com cores MUI |
 | `src/components/AppHeader.tsx` | Header com avatar e theme toggle |
 | `src/components/AppDrawer.tsx` | Drawer lateral com menu |
+| `src/database/database.ts` | Conexao e inicializacao do SQLite |
+| `src/database/migrations.ts` | Sistema de migrations versionado |
+| `src/database/useDatabase.ts` | Hooks para acesso ao banco |
 | `nswag.json` | Configuracao para geracao do cliente API |
 
 ## Solucao de Problemas
@@ -268,3 +439,9 @@ npx expo start --clear
 ### Tema nao atualiza
 
 Verifique se o ThemeProvider esta no topo da arvore de componentes em `_layout.tsx`.
+
+### Erro no banco de dados SQLite
+
+1. O app continua funcionando mesmo se o banco falhar (graceful degradation)
+2. Verifique os logs do console para detalhes do erro
+3. Para resetar o banco: use `resetDatabase()` ou reinstale o app
