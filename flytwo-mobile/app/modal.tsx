@@ -1,17 +1,26 @@
 import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { StyleSheet, View } from 'react-native';
+import { Button, Surface, Text, useTheme } from 'react-native-paper';
 
 export default function ModalScreen() {
+  const theme = useTheme();
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Surface style={styles.surface} elevation={2}>
+        <Text variant="headlineMedium" style={styles.title}>
+          Modal Screen
+        </Text>
+        <Text variant="bodyMedium" style={styles.description}>
+          This is a modal screen using React Native Paper components.
+        </Text>
+        <Link href="/" dismissTo asChild>
+          <Button mode="contained" style={styles.button}>
+            Go to Home
+          </Button>
+        </Link>
+      </Surface>
+    </View>
   );
 }
 
@@ -22,8 +31,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
+  surface: {
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+  },
+  title: {
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  description: {
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  button: {
+    marginTop: 8,
   },
 });

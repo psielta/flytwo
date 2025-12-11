@@ -1,13 +1,12 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Button, Card, FAB, Surface, Text, useTheme } from 'react-native-paper';
 
-import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
 
 export default function HomeScreen() {
+  const theme = useTheme();
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -17,63 +16,63 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+      <View style={styles.titleContainer}>
+        <Text variant="headlineLarge">Welcome!</Text>
+        <Text variant="headlineLarge">👋</Text>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
+      <Surface style={styles.surface} elevation={1}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          React Native Paper Demo
+        </Text>
+        <Text variant="bodyMedium">
+          This app now uses React Native Paper for all UI components. The Material Design 3 theme is
+          applied throughout the app.
+        </Text>
+      </Surface>
+
+      <Card style={styles.card}>
+        <Card.Title title="Card Component" subtitle="Material Design 3" />
+        <Card.Content>
+          <Text variant="bodyMedium">
+            Cards are versatile containers for displaying related content and actions.
+          </Text>
+        </Card.Content>
+        <Card.Actions>
+          <Button onPress={() => {}}>Cancel</Button>
+          <Button mode="contained" onPress={() => {}}>
+            OK
+          </Button>
+        </Card.Actions>
+      </Card>
+
+      <View style={styles.buttonContainer}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          Button Variants
+        </Text>
+        <Button mode="contained" style={styles.button} onPress={() => {}}>
+          Contained
+        </Button>
+        <Button mode="outlined" style={styles.button} onPress={() => {}}>
+          Outlined
+        </Button>
+        <Button mode="text" style={styles.button} onPress={() => {}}>
+          Text Button
+        </Button>
+        <Button mode="elevated" style={styles.button} onPress={() => {}}>
+          Elevated
+        </Button>
+        <Button mode="contained-tonal" style={styles.button} onPress={() => {}}>
+          Tonal
+        </Button>
+      </View>
+
+      <FAB
+        icon="plus"
+        style={[styles.fab, { backgroundColor: theme.colors.primaryContainer }]}
+        onPress={() => {}}
+        label="Action"
+      />
     </ParallaxScrollView>
   );
 }
@@ -84,15 +83,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
   reactLogo: {
     height: 178,
     width: 290,
     bottom: 0,
     left: 0,
     position: 'absolute',
+  },
+  surface: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  card: {
+    marginVertical: 8,
+  },
+  sectionTitle: {
+    marginBottom: 8,
+  },
+  buttonContainer: {
+    gap: 8,
+  },
+  button: {
+    marginVertical: 4,
+  },
+  fab: {
+    marginTop: 16,
+    alignSelf: 'center',
   },
 });
