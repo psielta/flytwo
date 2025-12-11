@@ -9,8 +9,9 @@ import (
 )
 
 type Api struct {
-	Router      *chi.Mux
-	UserService services.UserServiceInterface
-	Sessions    *scs.SessionManager
-	WsUpgrader  websocket.Upgrader
+	Router         *chi.Mux
+	UserService    services.UserServiceInterface
+	CatalogService services.CatalogImportServiceInterface
+	Sessions       *scs.SessionManager
+	WsUpgrader     websocket.Upgrader
 }

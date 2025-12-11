@@ -82,10 +82,12 @@ func main() {
 	s.Cookie.HttpOnly = true
 	s.Cookie.SameSite = http.SameSiteLaxMode
 	userService := services.NewUserService(pool)
+	catalogService := services.NewCatalogImportService(pool)
 	api := api.Api{
-		Router:      chi.NewMux(),
-		UserService: &userService,
-		Sessions:    s,
+		Router:         chi.NewMux(),
+		UserService:    &userService,
+		CatalogService: &catalogService,
+		Sessions:       s,
 		WsUpgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
