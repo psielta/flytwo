@@ -28,6 +28,8 @@ func (api *Api) BindRoutes() {
 				r.Use(api.AuthMiddleware)
 				r.Post("/catmat/import", api.handleImportCatmat)
 				r.Post("/catser/import", api.handleImportCatser)
+				r.Get("/catmat/search", api.handleSearchCatmat)
+				r.Get("/catser/search", api.handleSearchCatser)
 			})
 
 			r.Route("/users", func(r chi.Router) {

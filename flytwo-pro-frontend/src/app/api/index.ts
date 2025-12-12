@@ -9,7 +9,13 @@ export { Api } from './api';
 export type { CreateUserReq as DtoCreateUserReq } from './models/dto/create-user-req';
 export type { LoginUserReq as DtoLoginUserReq } from './models/dto/login-user-req';
 export type { UserProfileResponse as DtoUserProfileResponse } from './models/dto/user-profile-response';
+export type { ImportResult as ServicesImportResult } from './models/services/import-result';
+export type { RowError as ServicesRowError } from './models/services/row-error';
 
+export type { CatmatImportPost$Params as CatmatImportPost$Params } from './fn/catmat/catmat-import-post';
+export { catmatImportPost as catmatImportPost } from './fn/catmat/catmat-import-post';
+export type { CatserImportPost$Params as CatserImportPost$Params } from './fn/catser/catser-import-post';
+export { catserImportPost as catserImportPost } from './fn/catser/catser-import-post';
 export type { UsersLoginPost$Params as UsersLoginPost$Params } from './fn/users/users-login-post';
 export { usersLoginPost as usersLoginPost } from './fn/users/users-login-post';
 export type { UsersLogoutPost$Params as UsersLogoutPost$Params } from './fn/users/users-logout-post';

@@ -29,6 +29,65 @@ type RowError struct {
 	Reason string `json:"reason"`
 }
 
+// SearchResult is a generic paginated response for search operations.
+type SearchResult[T any] struct {
+	Data   []T   `json:"data"`
+	Total  int64 `json:"total"`
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+// CatmatSearchParams holds parameters for CATMAT FTS search.
+type CatmatSearchParams struct {
+	Query     string `json:"q"`
+	GroupCode *int16 `json:"group_code,omitempty"`
+	ClassCode *int32 `json:"class_code,omitempty"`
+	PdmCode   *int32 `json:"pdm_code,omitempty"`
+	NcmCode   *string `json:"ncm_code,omitempty"`
+	Limit     int32  `json:"limit"`
+	Offset    int32  `json:"offset"`
+}
+
+// CatmatSearchItem represents a single CATMAT search result.
+type CatmatSearchItem struct {
+	ID              int64   `json:"id"`
+	GroupCode       int16   `json:"group_code"`
+	GroupName       string  `json:"group_name"`
+	ClassCode       int32   `json:"class_code"`
+	ClassName       string  `json:"class_name"`
+	PdmCode         int32   `json:"pdm_code"`
+	PdmName         string  `json:"pdm_name"`
+	ItemCode        int32   `json:"item_code"`
+	ItemDescription string  `json:"item_description"`
+	NcmCode         *string `json:"ncm_code,omitempty"`
+	Rank            float32 `json:"rank"`
+}
+
+// CatserSearchParams holds parameters for CATSER FTS search.
+type CatserSearchParams struct {
+	Query       string  `json:"q"`
+	GroupCode   *int16  `json:"group_code,omitempty"`
+	ClassCode   *int32  `json:"class_code,omitempty"`
+	ServiceCode *int32  `json:"service_code,omitempty"`
+	Status      *string `json:"status,omitempty"`
+	Limit       int32   `json:"limit"`
+	Offset      int32   `json:"offset"`
+}
+
+// CatserSearchItem represents a single CATSER search result.
+type CatserSearchItem struct {
+	ID                  int64   `json:"id"`
+	MaterialServiceType string  `json:"material_service_type"`
+	GroupCode           int16   `json:"group_code"`
+	GroupName           string  `json:"group_name"`
+	ClassCode           int32   `json:"class_code"`
+	ClassName           string  `json:"class_name"`
+	ServiceCode         int32   `json:"service_code"`
+	ServiceDescription  string  `json:"service_description"`
+	Status              string  `json:"status"`
+	Rank                float32 `json:"rank"`
+}
+
 // CatalogImportService handles bulk imports for CATMAT and CATSER.
 type CatalogImportService struct {
 	pool    *pgxpool.Pool
@@ -424,4 +483,197 @@ func getCell(cells []string, idx int) string {
 		return cells[idx]
 	}
 	return ""
+}
+
+// SearchCatmat performs full-text search on CATMAT items.
+func (s *CatalogImportService) SearchCatmat(ctx context.Context, params CatmatSearchParams) (*SearchResult[CatmatSearchItem], error) {
+	// Validate and set defaults
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Build query parameters
+	var queryParam, ncmCodeParam *string
+	var groupCodeParam *int16
+	var classCodeParam, pdmCodeParam *int32
+
+	if params.Query != "" {
+		queryParam = &params.Query
+	}
+	if params.GroupCode != nil {
+		groupCodeParam = params.GroupCode
+	}
+	if params.ClassCode != nil {
+		classCodeParam = params.ClassCode
+	}
+	if params.PdmCode != nil {
+		pdmCodeParam = params.PdmCode
+	}
+	if params.NcmCode != nil {
+		ncmCodeParam = params.NcmCode
+	}
+
+	// Execute the search function
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, group_code, group_name, class_code, class_name,
+		       pdm_code, pdm_name, item_code, item_description, ncm_code, rank
+		FROM catmat_search_fts($1, $2, $3, $4, $5, $6, $7)
+	`, queryParam, groupCodeParam, classCodeParam, pdmCodeParam, ncmCodeParam, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search catmat: %w", err)
+	}
+	defer rows.Close()
+
+	var items []CatmatSearchItem
+	for rows.Next() {
+		var item CatmatSearchItem
+		var ncmCode *string
+		if err := rows.Scan(
+			&item.ID,
+			&item.GroupCode,
+			&item.GroupName,
+			&item.ClassCode,
+			&item.ClassName,
+			&item.PdmCode,
+			&item.PdmName,
+			&item.ItemCode,
+			&item.ItemDescription,
+			&ncmCode,
+			&item.Rank,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan catmat row: %w", err)
+		}
+		item.NcmCode = ncmCode
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating catmat rows: %w", err)
+	}
+
+	// Get total count for pagination
+	var total int64
+	err = s.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM catmat_item
+		WHERE ($1::text IS NULL OR search_document @@ websearch_to_tsquery('portuguese_unaccent', $1))
+		  AND ($2::smallint IS NULL OR group_code = $2)
+		  AND ($3::integer IS NULL OR class_code = $3)
+		  AND ($4::integer IS NULL OR pdm_code = $4)
+		  AND ($5::text IS NULL OR ncm_code = $5)
+	`, queryParam, groupCodeParam, classCodeParam, pdmCodeParam, ncmCodeParam).Scan(&total)
+	if err != nil {
+		// If count fails, just use the items length
+		total = int64(len(items))
+	}
+
+	return &SearchResult[CatmatSearchItem]{
+		Data:   items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
+}
+
+// SearchCatser performs full-text search on CATSER items.
+func (s *CatalogImportService) SearchCatser(ctx context.Context, params CatserSearchParams) (*SearchResult[CatserSearchItem], error) {
+	// Validate and set defaults
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Build query parameters
+	var queryParam, statusParam *string
+	var groupCodeParam *int16
+	var classCodeParam, serviceCodeParam *int32
+
+	if params.Query != "" {
+		queryParam = &params.Query
+	}
+	if params.GroupCode != nil {
+		groupCodeParam = params.GroupCode
+	}
+	if params.ClassCode != nil {
+		classCodeParam = params.ClassCode
+	}
+	if params.ServiceCode != nil {
+		serviceCodeParam = params.ServiceCode
+	}
+	if params.Status != nil {
+		statusParam = params.Status
+	}
+
+	// Execute the search function
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, material_service_type, group_code, group_name, class_code,
+		       class_name, service_code, service_description, status, rank
+		FROM catser_search_fts($1, $2, $3, $4, $5, $6, $7)
+	`, queryParam, groupCodeParam, classCodeParam, serviceCodeParam, statusParam, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search catser: %w", err)
+	}
+	defer rows.Close()
+
+	var items []CatserSearchItem
+	for rows.Next() {
+		var item CatserSearchItem
+		if err := rows.Scan(
+			&item.ID,
+			&item.MaterialServiceType,
+			&item.GroupCode,
+			&item.GroupName,
+			&item.ClassCode,
+			&item.ClassName,
+			&item.ServiceCode,
+			&item.ServiceDescription,
+			&item.Status,
+			&item.Rank,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan catser row: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating catser rows: %w", err)
+	}
+
+	// Get total count for pagination
+	var total int64
+	err = s.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM catser_item
+		WHERE ($1::text IS NULL OR search_document @@ websearch_to_tsquery('portuguese_unaccent', $1))
+		  AND ($2::smallint IS NULL OR group_code = $2)
+		  AND ($3::integer IS NULL OR class_code = $3)
+		  AND ($4::integer IS NULL OR service_code = $4)
+		  AND ($5::text IS NULL OR status = $5)
+	`, queryParam, groupCodeParam, classCodeParam, serviceCodeParam, statusParam).Scan(&total)
+	if err != nil {
+		// If count fails, just use the items length
+		total = int64(len(items))
+	}
+
+	return &SearchResult[CatserSearchItem]{
+		Data:   items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
 }

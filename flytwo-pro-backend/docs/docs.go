@@ -70,6 +70,92 @@ const docTemplate = `{
                 }
             }
         },
+        "/catmat/search": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Pesquisa itens do catálogo CATMAT usando busca textual com filtros opcionais",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catmat"
+                ],
+                "summary": "Pesquisa itens CATMAT via full-text search",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Termo de busca",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Código do grupo (2 dígitos)",
+                        "name": "group_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Código da classe (4 dígitos)",
+                        "name": "class_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Código do PDM (5 dígitos)",
+                        "name": "pdm_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Código NCM",
+                        "name": "ncm_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limite de resultados (padrão 50, máximo 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset para paginação (padrão 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resultados da busca paginados",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CatmatSearchResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Erro interno",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/catser/import": {
             "post": {
                 "description": "Faz upsert dos itens da planilha para a tabela catser_item",
@@ -108,6 +194,92 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/catser/search": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Pesquisa itens do catálogo CATSER usando busca textual com filtros opcionais",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catser"
+                ],
+                "summary": "Pesquisa itens CATSER via full-text search",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Termo de busca",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Código do grupo",
+                        "name": "group_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Código da classe",
+                        "name": "class_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Código do serviço",
+                        "name": "service_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (Ativo/Inativo)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limite de resultados (padrão 50, máximo 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset para paginação (padrão 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Resultados da busca paginados",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CatserSearchResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Erro interno",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -301,6 +473,119 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.CatmatSearchItem": {
+            "type": "object",
+            "properties": {
+                "class_code": {
+                    "type": "integer"
+                },
+                "class_name": {
+                    "type": "string"
+                },
+                "group_code": {
+                    "type": "integer"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "item_code": {
+                    "type": "integer"
+                },
+                "item_description": {
+                    "type": "string"
+                },
+                "ncm_code": {
+                    "type": "string"
+                },
+                "pdm_code": {
+                    "type": "integer"
+                },
+                "pdm_name": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "number"
+                }
+            }
+        },
+        "dto.CatmatSearchResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.CatmatSearchItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.CatserSearchItem": {
+            "type": "object",
+            "properties": {
+                "class_code": {
+                    "type": "integer"
+                },
+                "class_name": {
+                    "type": "string"
+                },
+                "group_code": {
+                    "type": "integer"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "material_service_type": {
+                    "type": "string"
+                },
+                "rank": {
+                    "type": "number"
+                },
+                "service_code": {
+                    "type": "integer"
+                },
+                "service_description": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CatserSearchResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.CatserSearchItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "dto.CreateUserReq": {
             "type": "object",
             "required": [

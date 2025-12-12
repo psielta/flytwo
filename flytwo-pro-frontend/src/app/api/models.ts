@@ -4,3 +4,5 @@
 export type { CreateUserReq as DtoCreateUserReq } from './models/dto/create-user-req';
 export type { LoginUserReq as DtoLoginUserReq } from './models/dto/login-user-req';
 export type { UserProfileResponse as DtoUserProfileResponse } from './models/dto/user-profile-response';
+export type { ImportResult as ServicesImportResult } from './models/services/import-result';
+export type { RowError as ServicesRowError } from './models/services/row-error';

@@ -79,8 +79,126 @@ npm run api:generate      # Regenerar cliente da API (backend deve estar rodando
 npm run build             # Build de producao
 
 # Testes
-npm test                  # Executar testes
+npm test                  # Executar testes (Vitest)
 ```
+
+## Testes Unitarios
+
+### Configuracao
+
+O projeto usa o novo builder `@angular/build:unit-test` que integra **Vitest** como test runner. Nao requer `zone.js/testing`.
+
+### Executar Testes
+
+```bash
+npm test                  # Modo watch
+```
+
+### Estrutura de Testes
+
+Arquivos de teste seguem o padrao `*.spec.ts` e ficam junto aos arquivos que testam:
+
+```
+src/app/features/catalog/
+├── services/
+│   ├── catalog.service.ts
+│   └── catalog.service.spec.ts    # Teste do service
+├── catmat-search/
+│   ├── catmat-search.component.ts
+│   └── catmat-search.component.spec.ts  # Teste do component
+```
+
+### Padrao para Testes de Services
+
+```typescript
+import { TestBed } from '@angular/core/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { MyService } from './my.service';
+
+describe('MyService', () => {
+  let service: MyService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        MyService,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    service = TestBed.inject(MyService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('should make HTTP request', async () => {
+    const resultPromise = firstValueFrom(service.getData());
+
+    const req = httpMock.expectOne('/api/data');
+    req.flush({ data: 'test' });
+
+    const result = await resultPromise;
+    expect(result.data).toBe('test');
+  });
+});
+```
+
+### Padrao para Testes de Components
+
+```typescript
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { of } from 'rxjs';
+import { MyComponent } from './my.component';
+import { MyService } from '../services/my.service';
+
+describe('MyComponent', () => {
+  let component: MyComponent;
+  let fixture: ComponentFixture<MyComponent>;
+  let serviceMock: { getData: ReturnType<typeof vi.fn> };
+
+  beforeEach(async () => {
+    serviceMock = {
+      getData: vi.fn().mockReturnValue(of({ data: 'test' })),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [MyComponent, NoopAnimationsModule],
+      providers: [{ provide: MyService, useValue: serviceMock }],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(MyComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+
+  it('should call service on init', () => {
+    expect(serviceMock.getData).toHaveBeenCalled();
+  });
+});
+```
+
+### Boas Praticas
+
+1. **Usar `vi.fn()` para mocks** (Vitest)
+2. **Usar `firstValueFrom()` para async** em vez de `fakeAsync/tick` (nao suportado sem zone.js)
+3. **Usar `NoopAnimationsModule`** para evitar problemas com animacoes Material
+4. **Usar mocks para services** em testes de componentes
+5. **Verificar HTTP requests com `httpMock.verify()`** em afterEach
+6. **Criar nova fixture para testar inputs diferentes** quando computed signals dependem do input
 
 ## Integracao com API
 

@@ -187,3 +187,200 @@ func authCookie(api *Api, userID uuid.UUID) *http.Cookie {
 	}
 	return cookies[0]
 }
+
+// ==================== SEARCH TESTS ====================
+
+func TestHandleSearchCatmat_Success(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	ncmCode := "12345678"
+	expected := &services.SearchResult[services.CatmatSearchItem]{
+		Data: []services.CatmatSearchItem{
+			{
+				ID:              1,
+				GroupCode:       10,
+				GroupName:       "Test Group",
+				ClassCode:       1000,
+				ClassName:       "Test Class",
+				PdmCode:         10000,
+				PdmName:         "Test PDM",
+				ItemCode:        100000,
+				ItemDescription: "Test Item",
+				NcmCode:         &ncmCode,
+				Rank:            0.5,
+			},
+		},
+		Total:  1,
+		Limit:  50,
+		Offset: 0,
+	}
+	mockCatalog.On("SearchCatmat", mock.Anything, mock.Anything).Return(expected, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catmat/search?q=test", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp map[string]interface{}
+	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, float64(1), resp["total"])
+	assert.Equal(t, float64(50), resp["limit"])
+	assert.Equal(t, float64(0), resp["offset"])
+
+	data := resp["data"].([]interface{})
+	assert.Len(t, data, 1)
+
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleSearchCatmat_WithFilters(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	expected := &services.SearchResult[services.CatmatSearchItem]{
+		Data:   []services.CatmatSearchItem{},
+		Total:  0,
+		Limit:  25,
+		Offset: 10,
+	}
+	mockCatalog.On("SearchCatmat", mock.Anything, mock.MatchedBy(func(p services.CatmatSearchParams) bool {
+		return p.Query == "material" &&
+			p.GroupCode != nil && *p.GroupCode == 10 &&
+			p.Limit == 25 &&
+			p.Offset == 10
+	})).Return(expected, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catmat/search?q=material&group_code=10&limit=25&offset=10", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleSearchCatmat_Error(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	mockCatalog.On("SearchCatmat", mock.Anything, mock.Anything).Return((*services.SearchResult[services.CatmatSearchItem])(nil), assert.AnError)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catmat/search?q=test", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleSearchCatmat_Unauthorized(t *testing.T) {
+	api, _ := setupCatalogAPI()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catmat/search?q=test", nil)
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestHandleSearchCatser_Success(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	expected := &services.SearchResult[services.CatserSearchItem]{
+		Data: []services.CatserSearchItem{
+			{
+				ID:                  1,
+				MaterialServiceType: "Serviço",
+				GroupCode:           20,
+				GroupName:           "Test Service Group",
+				ClassCode:           2000,
+				ClassName:           "Test Service Class",
+				ServiceCode:         200000,
+				ServiceDescription:  "Test Service",
+				Status:              "Ativo",
+				Rank:                0.8,
+			},
+		},
+		Total:  1,
+		Limit:  50,
+		Offset: 0,
+	}
+	mockCatalog.On("SearchCatser", mock.Anything, mock.Anything).Return(expected, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catser/search?q=service", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp map[string]interface{}
+	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, float64(1), resp["total"])
+
+	data := resp["data"].([]interface{})
+	assert.Len(t, data, 1)
+
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleSearchCatser_WithStatusFilter(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	expected := &services.SearchResult[services.CatserSearchItem]{
+		Data:   []services.CatserSearchItem{},
+		Total:  0,
+		Limit:  50,
+		Offset: 0,
+	}
+	mockCatalog.On("SearchCatser", mock.Anything, mock.MatchedBy(func(p services.CatserSearchParams) bool {
+		return p.Status != nil && *p.Status == "Ativo"
+	})).Return(expected, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catser/search?status=Ativo", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleSearchCatser_Error(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	mockCatalog.On("SearchCatser", mock.Anything, mock.Anything).Return((*services.SearchResult[services.CatserSearchItem])(nil), assert.AnError)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catser/search?q=test", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleSearchCatser_Unauthorized(t *testing.T) {
+	api, _ := setupCatalogAPI()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catser/search?q=test", nil)
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}

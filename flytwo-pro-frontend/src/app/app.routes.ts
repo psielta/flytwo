@@ -3,6 +3,12 @@ import { Routes } from '@angular/router';
 import { AuthLayoutComponent, MainLayoutComponent } from './shared/layouts';
 import { LoginComponent, RegisterComponent } from './features/auth';
 import { DashboardComponent } from './features/dashboard';
+import {
+  CatmatImportComponent,
+  CatserImportComponent,
+  CatmatSearchComponent,
+  CatserSearchComponent,
+} from './features/catalog';
 import { authGuard, guestGuard } from './core/auth';
 
 export const routes: Routes = [
@@ -28,7 +34,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent },
-      // Add more protected routes here
+      // Catalog routes
+      { path: 'catalog/catmat/import', component: CatmatImportComponent },
+      { path: 'catalog/catser/import', component: CatserImportComponent },
+      { path: 'catalog/catmat/search', component: CatmatSearchComponent },
+      { path: 'catalog/catser/search', component: CatserSearchComponent },
     ],
   },
   // Fallback

@@ -28,3 +28,19 @@ func (m *MockCatalogImportService) ImportCatser(ctx context.Context, reader io.R
 	}
 	return args.Get(0).(*services.ImportResult), args.Error(1)
 }
+
+func (m *MockCatalogImportService) SearchCatmat(ctx context.Context, params services.CatmatSearchParams) (*services.SearchResult[services.CatmatSearchItem], error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*services.SearchResult[services.CatmatSearchItem]), args.Error(1)
+}
+
+func (m *MockCatalogImportService) SearchCatser(ctx context.Context, params services.CatserSearchParams) (*services.SearchResult[services.CatserSearchItem], error) {
+	args := m.Called(ctx, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*services.SearchResult[services.CatserSearchItem]), args.Error(1)
+}

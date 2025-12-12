@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 import { LogoComponent } from '../../components/logo';
 import { ThemeService } from '../../../core/services';
@@ -15,7 +16,8 @@ import { AuthService } from '../../../core/auth';
 interface NavItem {
   label: string;
   icon: string;
-  route: string;
+  route?: string;
+  children?: NavItem[];
 }
 
 @Component({
@@ -32,6 +34,7 @@ interface NavItem {
     MatButtonModule,
     MatMenuModule,
     MatDividerModule,
+    MatExpansionModule,
     LogoComponent,
   ],
   template: `
@@ -47,15 +50,37 @@ interface NavItem {
           <span class="brand-name">FlyTwo Pro</span>
         </div>
         <mat-nav-list>
-          @for (item of navItems; track item.route) {
-            <a
-              mat-list-item
-              [routerLink]="item.route"
-              routerLinkActive="active"
-            >
-              <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-              <span matListItemTitle>{{ item.label }}</span>
-            </a>
+          @for (item of navItems; track item.label) {
+            @if (item.children) {
+              <mat-expansion-panel class="nav-expansion-panel">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <mat-icon>{{ item.icon }}</mat-icon>
+                    <span>{{ item.label }}</span>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                @for (child of item.children; track child.route) {
+                  <a
+                    mat-list-item
+                    [routerLink]="child.route"
+                    routerLinkActive="active"
+                    class="child-nav-item"
+                  >
+                    <mat-icon matListItemIcon>{{ child.icon }}</mat-icon>
+                    <span matListItemTitle>{{ child.label }}</span>
+                  </a>
+                }
+              </mat-expansion-panel>
+            } @else {
+              <a
+                mat-list-item
+                [routerLink]="item.route"
+                routerLinkActive="active"
+              >
+                <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+                <span matListItemTitle>{{ item.label }}</span>
+              </a>
+            }
           }
         </mat-nav-list>
       </mat-sidenav>
@@ -183,6 +208,56 @@ interface NavItem {
       .user-info small {
         color: var(--mat-sys-on-surface-variant);
       }
+
+      .nav-expansion-panel {
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .nav-expansion-panel ::ng-deep .mat-expansion-panel-header {
+        padding: 0 16px;
+        height: 48px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .nav-expansion-panel ::ng-deep .mat-expansion-panel-header:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .nav-expansion-panel ::ng-deep .mat-expansion-panel-body {
+        padding: 0;
+      }
+
+      .nav-expansion-panel ::ng-deep .mat-panel-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .nav-expansion-panel ::ng-deep .mat-expansion-indicator::after {
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-panel-header {
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-panel-header:hover {
+        background-color: var(--mat-sys-surface-container-high);
+      }
+
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-panel-title {
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-indicator::after {
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      .child-nav-item {
+        padding-left: 32px !important;
+      }
     `,
   ],
 })
@@ -194,7 +269,32 @@ export class MainLayoutComponent {
 
   readonly navItems: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
-    // Add more nav items here as needed
+    {
+      label: 'Catalogo',
+      icon: 'inventory_2',
+      children: [
+        {
+          label: 'Importar CATMAT',
+          icon: 'upload_file',
+          route: '/catalog/catmat/import',
+        },
+        {
+          label: 'Importar CATSER',
+          icon: 'upload_file',
+          route: '/catalog/catser/import',
+        },
+        {
+          label: 'Pesquisar CATMAT',
+          icon: 'search',
+          route: '/catalog/catmat/search',
+        },
+        {
+          label: 'Pesquisar CATSER',
+          icon: 'search',
+          route: '/catalog/catser/search',
+        },
+      ],
+    },
   ];
 
   toggleSidenav(): void {
