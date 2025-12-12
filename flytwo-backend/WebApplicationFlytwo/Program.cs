@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -10,6 +11,7 @@ using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Filters;
 using WebApplicationFlytwo.Mappings;
+using WebApplicationFlytwo.Security;
 using WebApplicationFlytwo.Services;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Serialization.NewtonsoftJson;
@@ -90,7 +92,10 @@ try
             };
         });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+        options.AddFlytwoPolicies());
+
+    builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
     // JWT Token service
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -178,7 +183,7 @@ try
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-        await IdentitySeeder.SeedAsync(userManager, roleManager, configuration, loggerFactory.CreateLogger("IdentitySeeder"));
+        await IdentitySeeder.SeedAsync(context, userManager, roleManager, configuration, loggerFactory.CreateLogger("IdentitySeeder"));
     }
 
     // Configure the HTTP request pipeline.

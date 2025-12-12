@@ -6,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using WebApplicationFlytwo.DTOs;
 using WebApplicationFlytwo.Entities;
+using WebApplicationFlytwo.Security;
 using WebApplicationFlytwo.Services;
 
 namespace WebApplicationFlytwo.Controllers;
@@ -24,7 +25,7 @@ public class AuthController : BaseApiController
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<AuthController> _logger;
 
-    private const string DefaultUserRole = "User";
+    private const string DefaultUserRole = FlytwoRoles.User;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
@@ -87,6 +88,12 @@ public class AuthController : BaseApiController
         var token = await _jwtTokenService.GenerateTokenAsync(user);
         var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
         var roles = new[] { DefaultUserRole };
+        var permissions = (await _userManager.GetClaimsAsync(user))
+            .Where(c => c.Type == FlytwoClaimTypes.Permission)
+            .Select(c => c.Value)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
 
         var response = new AuthResponse
         {
@@ -94,7 +101,9 @@ public class AuthController : BaseApiController
             ExpiresAt = expiresAt,
             Email = user.Email ?? string.Empty,
             FullName = user.FullName,
-            Roles = roles
+            EmpresaId = user.EmpresaId,
+            Roles = roles,
+            Permissions = permissions
         };
 
         return CreatedAtAction(nameof(Me), new { }, response);
@@ -126,6 +135,12 @@ public class AuthController : BaseApiController
         var roles = await _userManager.GetRolesAsync(user);
         var token = await _jwtTokenService.GenerateTokenAsync(user);
         var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
+        var permissions = (await _userManager.GetClaimsAsync(user))
+            .Where(c => c.Type == FlytwoClaimTypes.Permission)
+            .Select(c => c.Value)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
 
         var response = new AuthResponse
         {
@@ -133,7 +148,9 @@ public class AuthController : BaseApiController
             ExpiresAt = expiresAt,
             Email = user.Email ?? string.Empty,
             FullName = user.FullName,
-            Roles = roles
+            EmpresaId = user.EmpresaId,
+            Roles = roles,
+            Permissions = permissions
         };
 
         return Ok(response);
@@ -153,11 +170,19 @@ public class AuthController : BaseApiController
         }
 
         var roles = await _userManager.GetRolesAsync(user);
+        var permissions = User.Claims
+            .Where(c => c.Type == FlytwoClaimTypes.Permission)
+            .Select(c => c.Value)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
         return Ok(new
         {
             user.Email,
             user.FullName,
-            Roles = roles
+            user.EmpresaId,
+            Roles = roles,
+            Permissions = permissions
         });
     }
 

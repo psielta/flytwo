@@ -12,15 +12,29 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Todo> Todos => Set<Todo>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<Empresa> Empresas => Set<Empresa>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.Entity<Empresa>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.Name).IsUnique();
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
         modelBuilder.Entity<ApplicationUser>(entity =>
         {
             entity.Property(u => u.FullName)
                 .HasMaxLength(200);
+
+            entity.HasOne(u => u.Empresa)
+                .WithMany(e => e.Users)
+                .HasForeignKey(u => u.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Todo>(entity =>

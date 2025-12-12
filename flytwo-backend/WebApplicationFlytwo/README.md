@@ -1,4 +1,4 @@
-# FlyTwo Backend
+﻿# FlyTwo Backend
 
 ASP.NET Core 8.0 Web API com arquitetura em camadas.
 
@@ -96,12 +96,15 @@ builder.Services.AddFusionCache()
     .AsHybridCache();
 ```
 
-## AutenticaA735o (Identity + JWT)
+## Autenticação (Identity + JWT)
 
-- Identity com EF Core + PostgreSQL para gestA£o de usuA¡rios/roles.
-- JWT Bearer para autenticaA735o stateless em APIs.
-- Seeds automA¡ticos: cria role **Admin** e usuA¡rio `admin@flytwo.local` com senha `Admin123!` (configurA¡vel via `SeedAdmin` no *appsettings*).
-- Swagger jA¡ configurado com esquema Bearer (cadeado no canto superior direito).
+- Multi-tenant: cada usuário pertence a uma Empresa via `ApplicationUser.EmpresaId` (JWT claim `empresaId`).
+- Permissões/Policies: permissões (claims) ficam no `PermissionCatalog` e viram policies automaticamente (ex.: `[Authorize(Policy = "Usuarios.Visualizar")]`). Admin bypassa a checagem de permissão, mas regras de negócio (ex.: isolamento por empresa) continuam valendo.
+
+- Identity com EF Core + PostgreSQL para gestão de usuários/roles.
+- JWT Bearer para autenticação stateless em APIs.
+- Seeds automáticos: cria role **Admin** e usuário `admin@flytwo.local` com senha `Admin123!` (configurável via `SeedAdmin` no *appsettings*).
+- Swagger já configurado com esquema Bearer (cadeado no canto superior direito).
 
 ```json
 // appsettings.json
@@ -113,7 +116,8 @@ builder.Services.AddFusionCache()
 },
 "SeedAdmin": {
   "Email": "admin@flytwo.local",
-  "Password": "Admin123!"
+  "Password": "Admin123!",
+  "CompanyName": "FlyTwo"
 },
 "Smtp": {
   "Host": "localhost",
@@ -145,7 +149,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options => options.AddFlytwoPolicies());
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 ```
 
 ## Database
@@ -252,7 +257,7 @@ UI: http://localhost:8025 (SMTP em 1025)
 **Models**
 - RegisterRequest: { "email": string, "password": string, "confirmPassword": string, "fullName": string? }
 - LoginRequest: { "email": string, "password": string }
-- AuthResponse: { "accessToken": string, "expiresAt": DateTime, "email": string, "fullName": string?, "roles": string[], "tokenType": "Bearer" }
+- AuthResponse: { "accessToken": string, "expiresAt": DateTime, "email": string, "fullName": string?, "empresaId": Guid?, "roles": string[], "permissions": string[], "tokenType": "Bearer" }
 - ForgotPasswordRequest: { "email": string }
 - ResetPasswordRequest: { "email": string, "token": string, "newPassword": string, "confirmPassword": string }
 
@@ -260,6 +265,28 @@ UI: http://localhost:8025 (SMTP em 1025)
 - POST/PUT/DELETE dos controllers Todo e Product exigem Authorization: Bearer {token}.
 - Endpoints GET permanecem publicos.
 - Use o cadeado do Swagger UI para testar autenticado.
+
+### Usuários Controller (roles + claims + policies)
+
+| Method | Route | Policy | Description |
+|--------|-------|--------|-------------|
+| GET | /api/usuarios/roles | Usuarios.Visualizar | Lista roles disponíveis |
+| GET | /api/usuarios/permissoes | Usuarios.Visualizar | Lista permissões (claims) padronizadas |
+| GET | /api/usuarios | Usuarios.Visualizar | Lista usuários da mesma empresa |
+| GET | /api/usuarios/{id} | Usuarios.Visualizar | Obtém usuário por id (mesma empresa) |
+| POST | /api/usuarios | Usuarios.Criar | Cria usuário na mesma empresa + define roles/permissões |
+| PUT | /api/usuarios/{id} | Usuarios.Editar | Atualiza usuário + roles/permissões (mesma empresa) |
+| DELETE | /api/usuarios/{id} | Usuarios.Excluir | Exclui usuário (mesma empresa) |
+
+**Models**
+- UsuarioCreateRequest: { "email": string, "password": string, "fullName": string?, "roles": string[]?, "permissions": string[]? }
+- UsuarioUpdateRequest: { "email": string?, "fullName": string?, "roles": string[]?, "permissions": string[]? }
+- UsuarioResponse: { "id": string, "email": string, "fullName": string?, "empresaId": Guid?, "roles": string[], "permissions": string[] }
+
+**Como funciona a permissão**
+- Policy name = permission key (ex.: `Usuarios.Visualizar`)
+- Claim type = `permission`, claim value = permission key
+- Ex.: para liberar listagem de usuários para um usuário não-admin, adicione a claim `permission=Usuarios.Visualizar`
 ### Todo Controller
 
 | Method | Route | Request Body | Success | Error | Description |

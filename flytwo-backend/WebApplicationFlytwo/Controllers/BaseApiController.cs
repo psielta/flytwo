@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using WebApplicationFlytwo.Entities;
+using WebApplicationFlytwo.Security;
 
 namespace WebApplicationFlytwo.Controllers;
 
@@ -17,8 +18,10 @@ public abstract class BaseApiController : ControllerBase
 
     protected string? UserEmail => User.FindFirstValue(ClaimTypes.Email);
 
+    protected string? JwtEmail => User.FindFirstValue(JwtRegisteredClaimNames.Email);
+
     protected string? UserNameOrEmail =>
-        User.Identity?.Name ?? UserEmail;
+        User.Identity?.Name ?? UserEmail ?? JwtEmail;
 
     protected bool IsAuthenticated => User?.Identity?.IsAuthenticated == true;
 
@@ -27,6 +30,15 @@ public abstract class BaseApiController : ControllerBase
             .Where(c => c.Type == ClaimTypes.Role)
             .Select(c => c.Value)
         ?? Enumerable.Empty<string>();
+
+    protected Guid? EmpresaId
+    {
+        get
+        {
+            var raw = User.FindFirstValue(FlytwoClaimTypes.EmpresaId);
+            return Guid.TryParse(raw, out var id) ? id : null;
+        }
+    }
 
     protected Task<ApplicationUser?> GetCurrentUserAsync(UserManager<ApplicationUser> userManager)
     {

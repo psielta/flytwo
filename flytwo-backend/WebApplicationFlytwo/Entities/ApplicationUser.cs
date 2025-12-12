@@ -8,4 +8,7 @@ namespace WebApplicationFlytwo.Entities;
 public class ApplicationUser : IdentityUser
 {
     public string? FullName { get; set; }
+
+    public Guid? EmpresaId { get; set; }
+    public Empresa? Empresa { get; set; }
 }

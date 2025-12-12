@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using WebApplicationFlytwo.Entities;
+using WebApplicationFlytwo.Security;
 
 namespace WebApplicationFlytwo.Services;
 
@@ -41,8 +42,16 @@ public class JwtTokenService : IJwtTokenService
             claims.Add(new Claim("fullName", user.FullName));
         }
 
+        if (user.EmpresaId is not null)
+        {
+            claims.Add(new Claim(FlytwoClaimTypes.EmpresaId, user.EmpresaId.Value.ToString()));
+        }
+
         var roles = await _userManager.GetRolesAsync(user);
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var userClaims = await _userManager.GetClaimsAsync(user);
+        claims.AddRange(userClaims);
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
         var creds = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
