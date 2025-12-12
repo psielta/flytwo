@@ -131,6 +131,7 @@ Nao ha mais passo manual de conversao; o servidor converte para OpenAPI 3 em tem
   - TTL: `GOBID_CACHE_TTL_SECONDS` (padrao 300s). Tamanho L1: `GOBID_CACHE_L1_MAX_COST` (padrao 10000).
 - Observabilidade: logs DEBUG mostram `cache hit L1`, `cache hit L2`, `cache miss`, `cache set L1/L2`.
 - Invalidacao: importacoes nao limpam cache; se importar planilhas e quiser refletir imediatamente, reinicie a API ou limpe Redis.
+- `GET /api/v1/catalog/stats` (estatisticas) tambem usa cache (mesmos parametros de TTL e Redis).
 
 ## Comandos Uteis
 

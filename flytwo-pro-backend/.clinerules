@@ -960,6 +960,7 @@ GOBID_CACHE_L1_MAX_COST=10000         # custo máximo do L1
 - Configuração via env (ver bloco acima): TTL (`GOBID_CACHE_TTL_SECONDS`), tamanho do L1 (`GOBID_CACHE_L1_MAX_COST`), host/db/credenciais do Redis.
 - Logs (DEBUG) mostram: `cache hit L1`, `cache hit L2`, `cache miss`, `cache set L1/L2`; use estes para verificar de onde veio o resultado.
 - Importações não invalidam cache: após importar planilhas, reinicie a API ou limpe Redis se precisar refletir imediatamente.
+- Estatísticas (`GET /api/v1/catalog/stats`) também usam o mesmo cache (mesmo TTL/Redis).
 
 ## Docker Setup
 PostgreSQL runs in Docker:

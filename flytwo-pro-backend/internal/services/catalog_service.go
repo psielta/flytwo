@@ -749,6 +749,16 @@ func (s *CatalogImportService) SearchCatser(ctx context.Context, params CatserSe
 
 // GetCatalogStats returns statistics for both CATMAT and CATSER catalogs.
 func (s *CatalogImportService) GetCatalogStats(ctx context.Context) (*dto.CatalogStatsResponse, error) {
+	const statsCacheKey = "catalog:stats"
+
+	if s.cache != nil {
+		var cached dto.CatalogStatsResponse
+		if ok, err := s.cache.Get(ctx, statsCacheKey, &cached); err == nil && ok {
+			s.log.Debug("catalog stats cache hit", zap.String("key", statsCacheKey))
+			return &cached, nil
+		}
+	}
+
 	response := &dto.CatalogStatsResponse{
 		CatmatByGroup:  []dto.GroupCount{},
 		CatserByGroup:  []dto.GroupCount{},
@@ -829,6 +839,14 @@ func (s *CatalogImportService) GetCatalogStats(ctx context.Context) (*dto.Catalo
 				continue
 			}
 			response.CatserByStatus = append(response.CatserByStatus, sc)
+		}
+	}
+
+	if s.cache != nil {
+		if err := s.cache.Set(ctx, statsCacheKey, response); err != nil {
+			s.log.Debug("catalog stats cache set error", zap.Error(err))
+		} else {
+			s.log.Debug("catalog stats cache set", zap.String("key", statsCacheKey))
 		}
 	}
 
