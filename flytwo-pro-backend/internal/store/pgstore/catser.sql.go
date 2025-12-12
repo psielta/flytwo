@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 	pgvector_go "github.com/pgvector/pgvector-go"
 )
 
@@ -161,7 +162,7 @@ const updateCatserItemEmbedding = `-- name: UpdateCatserItemEmbedding :one
 UPDATE catser_item
 SET embedding = $1::vector(1536)
 WHERE service_code = $2
-RETURNING id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status, search_document, embedding
+RETURNING id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status, embedding
 `
 
 type UpdateCatserItemEmbeddingParams struct {
@@ -169,9 +170,22 @@ type UpdateCatserItemEmbeddingParams struct {
 	ServiceCode int32              `json:"service_code"`
 }
 
-func (q *Queries) UpdateCatserItemEmbedding(ctx context.Context, arg UpdateCatserItemEmbeddingParams) (CatserItem, error) {
+type UpdateCatserItemEmbeddingRow struct {
+	ID                  int64           `json:"id"`
+	MaterialServiceType string          `json:"material_service_type"`
+	GroupCode           int16           `json:"group_code"`
+	GroupName           string          `json:"group_name"`
+	ClassCode           int32           `json:"class_code"`
+	ClassName           string          `json:"class_name"`
+	ServiceCode         int32           `json:"service_code"`
+	ServiceDescription  string          `json:"service_description"`
+	Status              string          `json:"status"`
+	Embedding           pgvector.Vector `json:"embedding"`
+}
+
+func (q *Queries) UpdateCatserItemEmbedding(ctx context.Context, arg UpdateCatserItemEmbeddingParams) (UpdateCatserItemEmbeddingRow, error) {
 	row := q.db.QueryRow(ctx, updateCatserItemEmbedding, arg.Embedding, arg.ServiceCode)
-	var i CatserItem
+	var i UpdateCatserItemEmbeddingRow
 	err := row.Scan(
 		&i.ID,
 		&i.MaterialServiceType,
@@ -182,7 +196,6 @@ func (q *Queries) UpdateCatserItemEmbedding(ctx context.Context, arg UpdateCatse
 		&i.ServiceCode,
 		&i.ServiceDescription,
 		&i.Status,
-		&i.SearchDocument,
 		&i.Embedding,
 	)
 	return i, err
@@ -218,7 +231,7 @@ DO UPDATE SET
     class_name            = EXCLUDED.class_name,
     service_description   = EXCLUDED.service_description,
     status                = EXCLUDED.status
-RETURNING id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status, search_document, embedding
+RETURNING id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status
 `
 
 type UpsertCatserItemParams struct {
@@ -232,7 +245,19 @@ type UpsertCatserItemParams struct {
 	Status              string `json:"status"`
 }
 
-func (q *Queries) UpsertCatserItem(ctx context.Context, arg UpsertCatserItemParams) (CatserItem, error) {
+type UpsertCatserItemRow struct {
+	ID                  int64  `json:"id"`
+	MaterialServiceType string `json:"material_service_type"`
+	GroupCode           int16  `json:"group_code"`
+	GroupName           string `json:"group_name"`
+	ClassCode           int32  `json:"class_code"`
+	ClassName           string `json:"class_name"`
+	ServiceCode         int32  `json:"service_code"`
+	ServiceDescription  string `json:"service_description"`
+	Status              string `json:"status"`
+}
+
+func (q *Queries) UpsertCatserItem(ctx context.Context, arg UpsertCatserItemParams) (UpsertCatserItemRow, error) {
 	row := q.db.QueryRow(ctx, upsertCatserItem,
 		arg.MaterialServiceType,
 		arg.GroupCode,
@@ -243,7 +268,7 @@ func (q *Queries) UpsertCatserItem(ctx context.Context, arg UpsertCatserItemPara
 		arg.ServiceDescription,
 		arg.Status,
 	)
-	var i CatserItem
+	var i UpsertCatserItemRow
 	err := row.Scan(
 		&i.ID,
 		&i.MaterialServiceType,
@@ -254,8 +279,6 @@ func (q *Queries) UpsertCatserItem(ctx context.Context, arg UpsertCatserItemPara
 		&i.ServiceCode,
 		&i.ServiceDescription,
 		&i.Status,
-		&i.SearchDocument,
-		&i.Embedding,
 	)
 	return i, err
 }

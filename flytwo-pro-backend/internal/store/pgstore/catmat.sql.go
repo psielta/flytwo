@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 	pgvector_go "github.com/pgvector/pgvector-go"
 )
 
@@ -165,7 +166,7 @@ const updateCatmatItemEmbedding = `-- name: UpdateCatmatItemEmbedding :one
 UPDATE catmat_item
 SET embedding = $1::vector(1536)
 WHERE item_code = $2
-RETURNING id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code, search_document, embedding
+RETURNING id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code, embedding
 `
 
 type UpdateCatmatItemEmbeddingParams struct {
@@ -173,9 +174,23 @@ type UpdateCatmatItemEmbeddingParams struct {
 	ItemCode  int32              `json:"item_code"`
 }
 
-func (q *Queries) UpdateCatmatItemEmbedding(ctx context.Context, arg UpdateCatmatItemEmbeddingParams) (CatmatItem, error) {
+type UpdateCatmatItemEmbeddingRow struct {
+	ID              int64           `json:"id"`
+	GroupCode       int16           `json:"group_code"`
+	GroupName       string          `json:"group_name"`
+	ClassCode       int32           `json:"class_code"`
+	ClassName       string          `json:"class_name"`
+	PdmCode         int32           `json:"pdm_code"`
+	PdmName         string          `json:"pdm_name"`
+	ItemCode        int32           `json:"item_code"`
+	ItemDescription string          `json:"item_description"`
+	NcmCode         pgtype.Text     `json:"ncm_code"`
+	Embedding       pgvector.Vector `json:"embedding"`
+}
+
+func (q *Queries) UpdateCatmatItemEmbedding(ctx context.Context, arg UpdateCatmatItemEmbeddingParams) (UpdateCatmatItemEmbeddingRow, error) {
 	row := q.db.QueryRow(ctx, updateCatmatItemEmbedding, arg.Embedding, arg.ItemCode)
-	var i CatmatItem
+	var i UpdateCatmatItemEmbeddingRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupCode,
@@ -187,7 +202,6 @@ func (q *Queries) UpdateCatmatItemEmbedding(ctx context.Context, arg UpdateCatma
 		&i.ItemCode,
 		&i.ItemDescription,
 		&i.NcmCode,
-		&i.SearchDocument,
 		&i.Embedding,
 	)
 	return i, err
@@ -226,7 +240,7 @@ DO UPDATE SET
     pdm_name        = EXCLUDED.pdm_name,
     item_description = EXCLUDED.item_description,
     ncm_code        = EXCLUDED.ncm_code
-RETURNING id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code, search_document, embedding
+RETURNING id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code
 `
 
 type UpsertCatmatItemParams struct {
@@ -241,7 +255,20 @@ type UpsertCatmatItemParams struct {
 	NcmCode         pgtype.Text `json:"ncm_code"`
 }
 
-func (q *Queries) UpsertCatmatItem(ctx context.Context, arg UpsertCatmatItemParams) (CatmatItem, error) {
+type UpsertCatmatItemRow struct {
+	ID              int64       `json:"id"`
+	GroupCode       int16       `json:"group_code"`
+	GroupName       string      `json:"group_name"`
+	ClassCode       int32       `json:"class_code"`
+	ClassName       string      `json:"class_name"`
+	PdmCode         int32       `json:"pdm_code"`
+	PdmName         string      `json:"pdm_name"`
+	ItemCode        int32       `json:"item_code"`
+	ItemDescription string      `json:"item_description"`
+	NcmCode         pgtype.Text `json:"ncm_code"`
+}
+
+func (q *Queries) UpsertCatmatItem(ctx context.Context, arg UpsertCatmatItemParams) (UpsertCatmatItemRow, error) {
 	row := q.db.QueryRow(ctx, upsertCatmatItem,
 		arg.GroupCode,
 		arg.GroupName,
@@ -253,7 +280,7 @@ func (q *Queries) UpsertCatmatItem(ctx context.Context, arg UpsertCatmatItemPara
 		arg.ItemDescription,
 		arg.NcmCode,
 	)
-	var i CatmatItem
+	var i UpsertCatmatItemRow
 	err := row.Scan(
 		&i.ID,
 		&i.GroupCode,
@@ -265,8 +292,6 @@ func (q *Queries) UpsertCatmatItem(ctx context.Context, arg UpsertCatmatItemPara
 		&i.ItemCode,
 		&i.ItemDescription,
 		&i.NcmCode,
-		&i.SearchDocument,
-		&i.Embedding,
 	)
 	return i, err
 }

@@ -11,7 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/xuri/excelize/v2"
+	"go.uber.org/zap"
 
+	"gobid/internal/logger"
 	"gobid/internal/store/pgstore"
 )
 
@@ -39,13 +41,13 @@ type SearchResult[T any] struct {
 
 // CatmatSearchParams holds parameters for CATMAT FTS search.
 type CatmatSearchParams struct {
-	Query     string `json:"q"`
-	GroupCode *int16 `json:"group_code,omitempty"`
-	ClassCode *int32 `json:"class_code,omitempty"`
-	PdmCode   *int32 `json:"pdm_code,omitempty"`
+	Query     string  `json:"q"`
+	GroupCode *int16  `json:"group_code,omitempty"`
+	ClassCode *int32  `json:"class_code,omitempty"`
+	PdmCode   *int32  `json:"pdm_code,omitempty"`
 	NcmCode   *string `json:"ncm_code,omitempty"`
-	Limit     int32  `json:"limit"`
-	Offset    int32  `json:"offset"`
+	Limit     int32   `json:"limit"`
+	Offset    int32   `json:"offset"`
 }
 
 // CatmatSearchItem represents a single CATMAT search result.
@@ -92,12 +94,14 @@ type CatserSearchItem struct {
 type CatalogImportService struct {
 	pool    *pgxpool.Pool
 	queries *pgstore.Queries
+	log     *zap.Logger
 }
 
 func NewCatalogImportService(pool *pgxpool.Pool) CatalogImportService {
 	return CatalogImportService{
 		pool:    pool,
 		queries: pgstore.New(pool),
+		log:     logger.Log,
 	}
 }
 
@@ -133,6 +137,7 @@ func (s *CatalogImportService) ImportCatmat(ctx context.Context, reader io.Reade
 				Row:    rowNumber,
 				Reason: fmt.Sprintf("erro lendo linha: %v", err),
 			})
+			s.log.Warn("catmat: erro lendo linha", zap.Int("row", rowNumber), zap.Error(err))
 			continue
 		}
 
@@ -156,6 +161,7 @@ func (s *CatalogImportService) ImportCatmat(ctx context.Context, reader io.Reade
 				Row:    rowNumber,
 				Reason: err.Error(),
 			})
+			s.log.Warn("catmat: linha ignorada", zap.Int("row", rowNumber), zap.String("reason", err.Error()))
 			continue
 		}
 
@@ -165,6 +171,7 @@ func (s *CatalogImportService) ImportCatmat(ctx context.Context, reader io.Reade
 				Row:    rowNumber,
 				Reason: fmt.Sprintf("erro ao salvar: %v", err),
 			})
+			s.log.Error("catmat: erro ao salvar", zap.Int("row", rowNumber), zap.Error(err))
 			continue
 		}
 
@@ -176,6 +183,7 @@ func (s *CatalogImportService) ImportCatmat(ctx context.Context, reader io.Reade
 	}
 
 	if !headerFound {
+		s.log.Error("catmat: cabeçalho não encontrado")
 		return result, fmt.Errorf("cabeçalho CATMAT não encontrado")
 	}
 
@@ -214,6 +222,7 @@ func (s *CatalogImportService) ImportCatser(ctx context.Context, reader io.Reade
 				Row:    rowNumber,
 				Reason: fmt.Sprintf("erro lendo linha: %v", err),
 			})
+			s.log.Warn("catser: erro lendo linha", zap.Int("row", rowNumber), zap.Error(err))
 			continue
 		}
 
@@ -237,6 +246,7 @@ func (s *CatalogImportService) ImportCatser(ctx context.Context, reader io.Reade
 				Row:    rowNumber,
 				Reason: err.Error(),
 			})
+			s.log.Warn("catser: linha ignorada", zap.Int("row", rowNumber), zap.String("reason", err.Error()))
 			continue
 		}
 
@@ -246,6 +256,7 @@ func (s *CatalogImportService) ImportCatser(ctx context.Context, reader io.Reade
 				Row:    rowNumber,
 				Reason: fmt.Sprintf("erro ao salvar: %v", err),
 			})
+			s.log.Error("catser: erro ao salvar", zap.Int("row", rowNumber), zap.Error(err))
 			continue
 		}
 
@@ -257,6 +268,7 @@ func (s *CatalogImportService) ImportCatser(ctx context.Context, reader io.Reade
 	}
 
 	if !headerFound {
+		s.log.Error("catser: cabeçalho não encontrado")
 		return result, fmt.Errorf("cabeçalho CATSER não encontrado")
 	}
 

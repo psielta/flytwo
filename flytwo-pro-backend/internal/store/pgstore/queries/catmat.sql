@@ -55,13 +55,13 @@ DO UPDATE SET
     pdm_name        = EXCLUDED.pdm_name,
     item_description = EXCLUDED.item_description,
     ncm_code        = EXCLUDED.ncm_code
-RETURNING *;
+RETURNING id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code;
 
 -- name: UpdateCatmatItemEmbedding :one
 UPDATE catmat_item
 SET embedding = sqlc.arg('embedding')::vector(1536)
 WHERE item_code = sqlc.arg('item_code')
-RETURNING *;
+RETURNING id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code, embedding;
 
 -- name: GetCatmatItemsWithoutEmbedding :many
 SELECT *

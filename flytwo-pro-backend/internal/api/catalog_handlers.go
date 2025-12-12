@@ -41,6 +41,7 @@ func (api *Api) handleImportCatmat(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
+		logger.Log.Warn("campo file ausente em multipart", zap.Error(err))
 		_ = jsonutils.EncodeJson(w, r, http.StatusBadRequest, map[string]any{
 			"error": "campo 'file' é obrigatório",
 		})
@@ -92,6 +93,7 @@ func (api *Api) handleImportCatser(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
+		logger.Log.Warn("campo file ausente em multipart", zap.Error(err))
 		_ = jsonutils.EncodeJson(w, r, http.StatusBadRequest, map[string]any{
 			"error": "campo 'file' é obrigatório",
 		})
@@ -177,11 +179,23 @@ func (api *Api) handleSearchCatmat(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Info("Pesquisando CATMAT",
 		zap.String("query", params.Query),
 		zap.Int32("limit", params.Limit),
-		zap.Int32("offset", params.Offset))
+		zap.Int32("offset", params.Offset),
+		zap.Any("group_code", params.GroupCode),
+		zap.Any("class_code", params.ClassCode),
+		zap.Any("pdm_code", params.PdmCode),
+		zap.Any("ncm_code", params.NcmCode))
 
 	result, err := api.CatalogService.SearchCatmat(r.Context(), params)
 	if err != nil {
-		logger.Log.Error("Erro ao pesquisar CATMAT", zap.Error(err))
+		logger.Log.Error("Erro ao pesquisar CATMAT",
+			zap.Error(err),
+			zap.String("query", params.Query),
+			zap.Any("group_code", params.GroupCode),
+			zap.Any("class_code", params.ClassCode),
+			zap.Any("pdm_code", params.PdmCode),
+			zap.Any("ncm_code", params.NcmCode),
+			zap.Int32("limit", params.Limit),
+			zap.Int32("offset", params.Offset))
 		_ = jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
 			"error": "falha na pesquisa",
 		})
@@ -211,6 +225,10 @@ func (api *Api) handleSearchCatmat(w http.ResponseWriter, r *http.Request) {
 			Rank:            item.Rank,
 		}
 	}
+
+	logger.Log.Info("CATMAT search concluída",
+		zap.Int("returned", len(response.Data)),
+		zap.Int64("total", result.Total))
 
 	_ = jsonutils.EncodeJson(w, r, http.StatusOK, response)
 }
@@ -279,11 +297,23 @@ func (api *Api) handleSearchCatser(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Info("Pesquisando CATSER",
 		zap.String("query", params.Query),
 		zap.Int32("limit", params.Limit),
-		zap.Int32("offset", params.Offset))
+		zap.Int32("offset", params.Offset),
+		zap.Any("group_code", params.GroupCode),
+		zap.Any("class_code", params.ClassCode),
+		zap.Any("service_code", params.ServiceCode),
+		zap.Any("status", params.Status))
 
 	result, err := api.CatalogService.SearchCatser(r.Context(), params)
 	if err != nil {
-		logger.Log.Error("Erro ao pesquisar CATSER", zap.Error(err))
+		logger.Log.Error("Erro ao pesquisar CATSER",
+			zap.Error(err),
+			zap.String("query", params.Query),
+			zap.Any("group_code", params.GroupCode),
+			zap.Any("class_code", params.ClassCode),
+			zap.Any("service_code", params.ServiceCode),
+			zap.Any("status", params.Status),
+			zap.Int32("limit", params.Limit),
+			zap.Int32("offset", params.Offset))
 		_ = jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
 			"error": "falha na pesquisa",
 		})
@@ -312,6 +342,10 @@ func (api *Api) handleSearchCatser(w http.ResponseWriter, r *http.Request) {
 			Rank:                item.Rank,
 		}
 	}
+
+	logger.Log.Info("CATSER search concluída",
+		zap.Int("returned", len(response.Data)),
+		zap.Int64("total", result.Total))
 
 	_ = jsonutils.EncodeJson(w, r, http.StatusOK, response)
 }

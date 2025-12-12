@@ -51,13 +51,13 @@ DO UPDATE SET
     class_name            = EXCLUDED.class_name,
     service_description   = EXCLUDED.service_description,
     status                = EXCLUDED.status
-RETURNING *;
+RETURNING id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status;
 
 -- name: UpdateCatserItemEmbedding :one
 UPDATE catser_item
 SET embedding = sqlc.arg('embedding')::vector(1536)
 WHERE service_code = sqlc.arg('service_code')
-RETURNING *;
+RETURNING id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status, embedding;
 
 -- name: GetCatserItemsWithoutEmbedding :many
 SELECT *
