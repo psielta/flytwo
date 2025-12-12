@@ -13,6 +13,83 @@ import (
 	pgvector_go "github.com/pgvector/pgvector-go"
 )
 
+const countCatserByGroup = `-- name: CountCatserByGroup :many
+SELECT group_code, group_name, COUNT(*) as count
+FROM catser_item
+GROUP BY group_code, group_name
+ORDER BY count DESC
+LIMIT 10
+`
+
+type CountCatserByGroupRow struct {
+	GroupCode int16  `json:"group_code"`
+	GroupName string `json:"group_name"`
+	Count     int64  `json:"count"`
+}
+
+func (q *Queries) CountCatserByGroup(ctx context.Context) ([]CountCatserByGroupRow, error) {
+	rows, err := q.db.Query(ctx, countCatserByGroup)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountCatserByGroupRow
+	for rows.Next() {
+		var i CountCatserByGroupRow
+		if err := rows.Scan(&i.GroupCode, &i.GroupName, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCatserByStatus = `-- name: CountCatserByStatus :many
+SELECT status, COUNT(*) as count
+FROM catser_item
+GROUP BY status
+ORDER BY status
+`
+
+type CountCatserByStatusRow struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
+func (q *Queries) CountCatserByStatus(ctx context.Context) ([]CountCatserByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countCatserByStatus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountCatserByStatusRow
+	for rows.Next() {
+		var i CountCatserByStatusRow
+		if err := rows.Scan(&i.Status, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCatserItems = `-- name: CountCatserItems :one
+SELECT COUNT(*) FROM catser_item
+`
+
+func (q *Queries) CountCatserItems(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countCatserItems)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getCatserItemsWithoutEmbedding = `-- name: GetCatserItemsWithoutEmbedding :many
 SELECT id, material_service_type, group_code, group_name, class_code, class_name, service_code, service_description, status, search_document, embedding
 FROM catser_item

@@ -30,6 +30,7 @@ func (api *Api) BindRoutes() {
 				r.Post("/catser/import", api.handleImportCatser)
 				r.Get("/catmat/search", api.handleSearchCatmat)
 				r.Get("/catser/search", api.handleSearchCatser)
+				r.Get("/catalog/stats", api.handleCatalogStats)
 			})
 
 			r.Route("/users", func(r chi.Router) {

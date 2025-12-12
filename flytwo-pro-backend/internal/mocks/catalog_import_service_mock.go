@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"gobid/internal/dto"
 	"gobid/internal/services"
 )
 
@@ -43,4 +44,12 @@ func (m *MockCatalogImportService) SearchCatser(ctx context.Context, params serv
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*services.SearchResult[services.CatserSearchItem]), args.Error(1)
+}
+
+func (m *MockCatalogImportService) GetCatalogStats(ctx context.Context) (*dto.CatalogStatsResponse, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.CatalogStatsResponse), args.Error(1)
 }

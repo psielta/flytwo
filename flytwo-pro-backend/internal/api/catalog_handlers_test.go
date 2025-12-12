@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"gobid/internal/dto"
 	"gobid/internal/logger"
 	"gobid/internal/mocks"
 	"gobid/internal/services"
@@ -383,4 +384,104 @@ func TestHandleSearchCatser_Unauthorized(t *testing.T) {
 	api.Router.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+// ==================== CATALOG STATS TESTS ====================
+
+func TestHandleCatalogStats_Success(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	expected := &dto.CatalogStatsResponse{
+		CatmatTotal: 1000,
+		CatserTotal: 500,
+		CatmatByGroup: []dto.GroupCount{
+			{GroupCode: 10, GroupName: "Materiais Elétricos", Count: 300},
+			{GroupCode: 20, GroupName: "Materiais de Construção", Count: 200},
+		},
+		CatserByGroup: []dto.GroupCount{
+			{GroupCode: 1, GroupName: "Serviços de TI", Count: 150},
+			{GroupCode: 2, GroupName: "Serviços de Limpeza", Count: 100},
+		},
+		CatserByStatus: []dto.StatusCount{
+			{Status: "Ativo", Count: 450},
+			{Status: "Inativo", Count: 50},
+		},
+	}
+	mockCatalog.On("GetCatalogStats", mock.Anything).Return(expected, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/stats", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dto.CatalogStatsResponse
+	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, int64(1000), resp.CatmatTotal)
+	assert.Equal(t, int64(500), resp.CatserTotal)
+	assert.Len(t, resp.CatmatByGroup, 2)
+	assert.Len(t, resp.CatserByGroup, 2)
+	assert.Len(t, resp.CatserByStatus, 2)
+
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleCatalogStats_Error(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	mockCatalog.On("GetCatalogStats", mock.Anything).Return((*dto.CatalogStatsResponse)(nil), assert.AnError)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/stats", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	mockCatalog.AssertExpectations(t)
+}
+
+func TestHandleCatalogStats_Unauthorized(t *testing.T) {
+	api, _ := setupCatalogAPI()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/stats", nil)
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestHandleCatalogStats_EmptyData(t *testing.T) {
+	api, mockCatalog := setupCatalogAPI()
+	userID := uuid.New()
+
+	expected := &dto.CatalogStatsResponse{
+		CatmatTotal:    0,
+		CatserTotal:    0,
+		CatmatByGroup:  []dto.GroupCount{},
+		CatserByGroup:  []dto.GroupCount{},
+		CatserByStatus: []dto.StatusCount{},
+	}
+	mockCatalog.On("GetCatalogStats", mock.Anything).Return(expected, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/catalog/stats", nil)
+	req.AddCookie(authCookie(api, userID))
+	rec := httptest.NewRecorder()
+
+	api.Router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dto.CatalogStatsResponse
+	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, int64(0), resp.CatmatTotal)
+	assert.Equal(t, int64(0), resp.CatserTotal)
+	assert.Len(t, resp.CatmatByGroup, 0)
+
+	mockCatalog.AssertExpectations(t)
 }

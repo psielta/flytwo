@@ -8,6 +8,7 @@ import {
   CatmatSearchResponse,
   CatserSearchParams,
   CatserSearchResponse,
+  CatalogStats,
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -137,6 +138,28 @@ export class CatalogService {
           return of(null);
         })
       );
+  }
+
+  /**
+   * Get catalog statistics for dashboard
+   */
+  getCatalogStats(): Observable<CatalogStats | null> {
+    this._isLoading.set(true);
+    this._error.set(null);
+
+    return this.http.get<CatalogStats>(`${this.rootUrl}/catalog/stats`).pipe(
+      map((result) => {
+        this._isLoading.set(false);
+        return result;
+      }),
+      catchError((err: HttpErrorResponse) => {
+        this._isLoading.set(false);
+        const errorMessage =
+          err.error?.error || 'Falha ao obter estatísticas do catálogo';
+        this._error.set(errorMessage);
+        return of(null);
+      })
+    );
   }
 
   clearError(): void {

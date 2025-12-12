@@ -44,3 +44,25 @@ type CatserSearchItem struct {
 	Status              string  `json:"status"`
 	Rank                float32 `json:"rank"`
 }
+
+// CatalogStatsResponse represents catalog statistics for dashboard
+type CatalogStatsResponse struct {
+	CatmatTotal    int64         `json:"catmat_total"`
+	CatserTotal    int64         `json:"catser_total"`
+	CatmatByGroup  []GroupCount  `json:"catmat_by_group"`
+	CatserByGroup  []GroupCount  `json:"catser_by_group"`
+	CatserByStatus []StatusCount `json:"catser_by_status"`
+}
+
+// GroupCount represents item count per group
+type GroupCount struct {
+	GroupCode int16  `json:"group_code"`
+	GroupName string `json:"group_name"`
+	Count     int64  `json:"count"`
+}
+
+// StatusCount represents item count per status
+type StatusCount struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}

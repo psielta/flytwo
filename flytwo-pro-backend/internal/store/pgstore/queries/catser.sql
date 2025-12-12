@@ -66,3 +66,19 @@ WHERE embedding IS NULL
 ORDER BY service_code
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
+
+-- name: CountCatserItems :one
+SELECT COUNT(*) FROM catser_item;
+
+-- name: CountCatserByGroup :many
+SELECT group_code, group_name, COUNT(*) as count
+FROM catser_item
+GROUP BY group_code, group_name
+ORDER BY count DESC
+LIMIT 10;
+
+-- name: CountCatserByStatus :many
+SELECT status, COUNT(*) as count
+FROM catser_item
+GROUP BY status
+ORDER BY status;

@@ -13,6 +13,7 @@ import (
 	"github.com/xuri/excelize/v2"
 	"go.uber.org/zap"
 
+	"gobid/internal/dto"
 	"gobid/internal/logger"
 	"gobid/internal/store/pgstore"
 )
@@ -688,4 +689,92 @@ func (s *CatalogImportService) SearchCatser(ctx context.Context, params CatserSe
 		Limit:  limit,
 		Offset: offset,
 	}, nil
+}
+
+// GetCatalogStats returns statistics for both CATMAT and CATSER catalogs.
+func (s *CatalogImportService) GetCatalogStats(ctx context.Context) (*dto.CatalogStatsResponse, error) {
+	response := &dto.CatalogStatsResponse{
+		CatmatByGroup:  []dto.GroupCount{},
+		CatserByGroup:  []dto.GroupCount{},
+		CatserByStatus: []dto.StatusCount{},
+	}
+
+	// Get CATMAT total count
+	if err := s.pool.QueryRow(ctx, "SELECT COUNT(*) FROM catmat_item").Scan(&response.CatmatTotal); err != nil {
+		s.log.Error("failed to get catmat count", zap.Error(err))
+		response.CatmatTotal = 0
+	}
+
+	// Get CATSER total count
+	if err := s.pool.QueryRow(ctx, "SELECT COUNT(*) FROM catser_item").Scan(&response.CatserTotal); err != nil {
+		s.log.Error("failed to get catser count", zap.Error(err))
+		response.CatserTotal = 0
+	}
+
+	// Get CATMAT items by group (top 10)
+	catmatGroupRows, err := s.pool.Query(ctx, `
+		SELECT group_code, group_name, COUNT(*) as count
+		FROM catmat_item
+		GROUP BY group_code, group_name
+		ORDER BY count DESC
+		LIMIT 10
+	`)
+	if err != nil {
+		s.log.Error("failed to get catmat by group", zap.Error(err))
+	} else {
+		defer catmatGroupRows.Close()
+		for catmatGroupRows.Next() {
+			var gc dto.GroupCount
+			if err := catmatGroupRows.Scan(&gc.GroupCode, &gc.GroupName, &gc.Count); err != nil {
+				s.log.Error("failed to scan catmat group row", zap.Error(err))
+				continue
+			}
+			response.CatmatByGroup = append(response.CatmatByGroup, gc)
+		}
+	}
+
+	// Get CATSER items by group (top 10)
+	catserGroupRows, err := s.pool.Query(ctx, `
+		SELECT group_code, group_name, COUNT(*) as count
+		FROM catser_item
+		GROUP BY group_code, group_name
+		ORDER BY count DESC
+		LIMIT 10
+	`)
+	if err != nil {
+		s.log.Error("failed to get catser by group", zap.Error(err))
+	} else {
+		defer catserGroupRows.Close()
+		for catserGroupRows.Next() {
+			var gc dto.GroupCount
+			if err := catserGroupRows.Scan(&gc.GroupCode, &gc.GroupName, &gc.Count); err != nil {
+				s.log.Error("failed to scan catser group row", zap.Error(err))
+				continue
+			}
+			response.CatserByGroup = append(response.CatserByGroup, gc)
+		}
+	}
+
+	// Get CATSER items by status
+	catserStatusRows, err := s.pool.Query(ctx, `
+		SELECT status, COUNT(*) as count
+		FROM catser_item
+		GROUP BY status
+		ORDER BY status
+	`)
+	if err != nil {
+		s.log.Error("failed to get catser by status", zap.Error(err))
+	} else {
+		defer catserStatusRows.Close()
+		for catserStatusRows.Next() {
+			var sc dto.StatusCount
+			if err := catserStatusRows.Scan(&sc.Status, &sc.Count); err != nil {
+				s.log.Error("failed to scan catser status row", zap.Error(err))
+				continue
+			}
+			response.CatserByStatus = append(response.CatserByStatus, sc)
+		}
+	}
+
+	return response, nil
 }

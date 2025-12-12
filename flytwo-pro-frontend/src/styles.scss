@@ -58,3 +58,73 @@ body {
 .mat-mdc-form-field {
   width: 100%;
 }
+
+// ngx-charts dark mode support
+.ngx-charts {
+  text {
+    fill: var(--mat-sys-on-surface) !important;
+  }
+
+  .gridline-path {
+    stroke: var(--mat-sys-outline-variant) !important;
+  }
+
+  .refline-path {
+    stroke: var(--mat-sys-outline-variant) !important;
+  }
+
+  .axis-label {
+    fill: var(--mat-sys-on-surface-variant) !important;
+  }
+
+  .tick {
+    text {
+      fill: var(--mat-sys-on-surface) !important;
+    }
+  }
+
+  .x.axis,
+  .y.axis {
+    .tick {
+      line {
+        stroke: var(--mat-sys-outline-variant) !important;
+      }
+    }
+
+    path.domain {
+      stroke: var(--mat-sys-outline-variant) !important;
+    }
+  }
+
+  .legend-labels {
+    background: transparent !important;
+
+    .legend-label {
+      color: var(--mat-sys-on-surface) !important;
+    }
+
+    .legend-label-text {
+      color: var(--mat-sys-on-surface) !important;
+    }
+  }
+
+  .pie-label {
+    fill: var(--mat-sys-on-surface) !important;
+  }
+
+  .pie-label-line {
+    stroke: var(--mat-sys-outline) !important;
+  }
+}
+
+// Ensure chart containers inherit proper colors
+ngx-charts-bar-horizontal,
+ngx-charts-bar-vertical,
+ngx-charts-pie-chart,
+ngx-charts-advanced-pie-chart {
+  .ngx-charts {
+    text {
+      fill: var(--mat-sys-on-surface) !important;
+    }
+  }
+}

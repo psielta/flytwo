@@ -70,3 +70,13 @@ WHERE embedding IS NULL
 ORDER BY item_code
 LIMIT sqlc.arg('limit')
 OFFSET sqlc.arg('offset');
+
+-- name: CountCatmatItems :one
+SELECT COUNT(*) FROM catmat_item;
+
+-- name: CountCatmatByGroup :many
+SELECT group_code, group_name, COUNT(*) as count
+FROM catmat_item
+GROUP BY group_code, group_name
+ORDER BY count DESC
+LIMIT 10;

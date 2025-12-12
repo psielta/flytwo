@@ -24,6 +24,45 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/catalog/stats": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retorna totais e distribuições por grupo e status para exibição no dashboard",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Obtém estatísticas do catálogo CATMAT e CATSER",
+                "responses": {
+                    "200": {
+                        "description": "Estatísticas do catálogo",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CatalogStatsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Não autenticado",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Erro interno",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/catmat/import": {
             "post": {
                 "description": "Faz upsert dos itens da planilha para a tabela catmat_item",
@@ -473,6 +512,35 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.CatalogStatsResponse": {
+            "type": "object",
+            "properties": {
+                "catmat_by_group": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.GroupCount"
+                    }
+                },
+                "catmat_total": {
+                    "type": "integer"
+                },
+                "catser_by_group": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.GroupCount"
+                    }
+                },
+                "catser_by_status": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.StatusCount"
+                    }
+                },
+                "catser_total": {
+                    "type": "integer"
+                }
+            }
+        },
         "dto.CatmatSearchItem": {
             "type": "object",
             "properties": {
@@ -606,6 +674,20 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.GroupCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "group_code": {
+                    "type": "integer"
+                },
+                "group_name": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.LoginUserReq": {
             "type": "object",
             "required": [
@@ -617,6 +699,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.StatusCount": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "status": {
                     "type": "string"
                 }
             }

@@ -1,5 +1,24 @@
 basePath: /api/v1
 definitions:
+  dto.CatalogStatsResponse:
+    properties:
+      catmat_by_group:
+        items:
+          $ref: '#/definitions/dto.GroupCount'
+        type: array
+      catmat_total:
+        type: integer
+      catser_by_group:
+        items:
+          $ref: '#/definitions/dto.GroupCount'
+        type: array
+      catser_by_status:
+        items:
+          $ref: '#/definitions/dto.StatusCount'
+        type: array
+      catser_total:
+        type: integer
+    type: object
   dto.CatmatSearchItem:
     properties:
       class_code:
@@ -88,6 +107,15 @@ definitions:
     - password
     - user_name
     type: object
+  dto.GroupCount:
+    properties:
+      count:
+        type: integer
+      group_code:
+        type: integer
+      group_name:
+        type: string
+    type: object
   dto.LoginUserReq:
     properties:
       email:
@@ -97,6 +125,13 @@ definitions:
     required:
     - email
     - password
+    type: object
+  dto.StatusCount:
+    properties:
+      count:
+        type: integer
+      status:
+        type: string
     type: object
   dto.UserProfileResponse:
     properties:
@@ -143,6 +178,32 @@ info:
   title: FlyTwo Pro API
   version: "1.0"
 paths:
+  /catalog/stats:
+    get:
+      description: Retorna totais e distribuições por grupo e status para exibição
+        no dashboard
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Estatísticas do catálogo
+          schema:
+            $ref: '#/definitions/dto.CatalogStatsResponse'
+        "401":
+          description: Não autenticado
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Erro interno
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Obtém estatísticas do catálogo CATMAT e CATSER
+      tags:
+      - catalog
   /catmat/import:
     post:
       consumes:

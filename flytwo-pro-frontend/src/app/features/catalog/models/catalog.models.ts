@@ -73,3 +73,23 @@ export interface CatserSearchParams {
   limit?: number;
   offset?: number;
 }
+
+// Catalog statistics types
+export interface CatalogStats {
+  catmat_total: number;
+  catser_total: number;
+  catmat_by_group: GroupCount[];
+  catser_by_group: GroupCount[];
+  catser_by_status: StatusCount[];
+}
+
+export interface GroupCount {
+  group_code: number;
+  group_name: string;
+  count: number;
+}
+
+export interface StatusCount {
+  status: string;
+  count: number;
+}

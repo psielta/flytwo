@@ -13,6 +13,7 @@ import {
   CatserSearchResponse,
   CatmatSearchItem,
   CatserSearchItem,
+  CatalogStats,
 } from '../models';
 
 describe('CatalogService', () => {
@@ -282,6 +283,69 @@ describe('CatalogService', () => {
       req.flush({ data: [], total: 0, limit: 25, offset: 0 });
 
       await resultPromise;
+    });
+  });
+
+  describe('getCatalogStats', () => {
+    const mockStats: CatalogStats = {
+      catmat_total: 1000,
+      catser_total: 500,
+      catmat_by_group: [
+        { group_code: 1, group_name: 'Materiais', count: 400 },
+        { group_code: 2, group_name: 'Equipamentos', count: 300 },
+      ],
+      catser_by_group: [
+        { group_code: 10, group_name: 'Consultoria', count: 200 },
+        { group_code: 11, group_name: 'Manutenção', count: 150 },
+      ],
+      catser_by_status: [
+        { status: 'Ativo', count: 450 },
+        { status: 'Inativo', count: 50 },
+      ],
+    };
+
+    it('should fetch catalog stats successfully', async () => {
+      const resultPromise = firstValueFrom(service.getCatalogStats());
+
+      expect(service.isLoading()).toBe(true);
+
+      const req = httpMock.expectOne(`${mockRootUrl}/catalog/stats`);
+      expect(req.request.method).toBe('GET');
+      req.flush(mockStats);
+
+      const result = await resultPromise;
+
+      expect(result).toEqual(mockStats);
+      expect(service.isLoading()).toBe(false);
+      expect(service.error()).toBeNull();
+    });
+
+    it('should handle error when fetching stats fails', async () => {
+      const resultPromise = firstValueFrom(service.getCatalogStats());
+
+      const req = httpMock.expectOne(`${mockRootUrl}/catalog/stats`);
+      req.flush(
+        { error: 'Failed to fetch stats' },
+        { status: 500, statusText: 'Internal Server Error' }
+      );
+
+      const result = await resultPromise;
+
+      expect(result).toBeNull();
+      expect(service.isLoading()).toBe(false);
+      expect(service.error()).toBe('Failed to fetch stats');
+    });
+
+    it('should use default error message when no error in response', async () => {
+      const resultPromise = firstValueFrom(service.getCatalogStats());
+
+      const req = httpMock.expectOne(`${mockRootUrl}/catalog/stats`);
+      req.flush(null, { status: 500, statusText: 'Internal Server Error' });
+
+      const result = await resultPromise;
+
+      expect(result).toBeNull();
+      expect(service.error()).toBe('Falha ao obter estatísticas do catálogo');
     });
   });
 

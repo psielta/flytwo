@@ -13,6 +13,51 @@ import (
 	pgvector_go "github.com/pgvector/pgvector-go"
 )
 
+const countCatmatByGroup = `-- name: CountCatmatByGroup :many
+SELECT group_code, group_name, COUNT(*) as count
+FROM catmat_item
+GROUP BY group_code, group_name
+ORDER BY count DESC
+LIMIT 10
+`
+
+type CountCatmatByGroupRow struct {
+	GroupCode int16  `json:"group_code"`
+	GroupName string `json:"group_name"`
+	Count     int64  `json:"count"`
+}
+
+func (q *Queries) CountCatmatByGroup(ctx context.Context) ([]CountCatmatByGroupRow, error) {
+	rows, err := q.db.Query(ctx, countCatmatByGroup)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountCatmatByGroupRow
+	for rows.Next() {
+		var i CountCatmatByGroupRow
+		if err := rows.Scan(&i.GroupCode, &i.GroupName, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countCatmatItems = `-- name: CountCatmatItems :one
+SELECT COUNT(*) FROM catmat_item
+`
+
+func (q *Queries) CountCatmatItems(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countCatmatItems)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getCatmatItemsWithoutEmbedding = `-- name: GetCatmatItemsWithoutEmbedding :many
 SELECT id, group_code, group_name, class_code, class_name, pdm_code, pdm_name, item_code, item_description, ncm_code, search_document, embedding
 FROM catmat_item

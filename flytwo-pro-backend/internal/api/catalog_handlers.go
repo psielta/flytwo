@@ -361,3 +361,43 @@ func parseIntParam(value string, defaultVal int32) int32 {
 	}
 	return int32(v)
 }
+
+// handleCatalogStats godoc
+// @Summary Obtém estatísticas do catálogo CATMAT e CATSER
+// @Description Retorna totais e distribuições por grupo e status para exibição no dashboard
+// @Tags catalog
+// @Produce json
+// @Success 200 {object} dto.CatalogStatsResponse "Estatísticas do catálogo"
+// @Failure 401 {object} map[string]interface{} "Não autenticado"
+// @Failure 500 {object} map[string]interface{} "Erro interno"
+// @Security ApiKeyAuth
+// @Router /catalog/stats [get]
+func (api *Api) handleCatalogStats(w http.ResponseWriter, r *http.Request) {
+	if api.CatalogService == nil {
+		logger.Log.Error("CatalogService não configurado")
+		_ = jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
+			"error": "serviço de estatísticas indisponível",
+		})
+		return
+	}
+
+	logger.Log.Info("Obtendo estatísticas do catálogo")
+
+	stats, err := api.CatalogService.GetCatalogStats(r.Context())
+	if err != nil {
+		logger.Log.Error("Erro ao obter estatísticas do catálogo", zap.Error(err))
+		_ = jsonutils.EncodeJson(w, r, http.StatusInternalServerError, map[string]any{
+			"error": "falha ao obter estatísticas",
+		})
+		return
+	}
+
+	logger.Log.Info("Estatísticas obtidas com sucesso",
+		zap.Int64("catmat_total", stats.CatmatTotal),
+		zap.Int64("catser_total", stats.CatserTotal),
+		zap.Int("catmat_groups", len(stats.CatmatByGroup)),
+		zap.Int("catser_groups", len(stats.CatserByGroup)),
+		zap.Int("catser_statuses", len(stats.CatserByStatus)))
+
+	_ = jsonutils.EncodeJson(w, r, http.StatusOK, stats)
+}
