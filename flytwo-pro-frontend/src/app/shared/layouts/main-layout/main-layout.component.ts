@@ -134,17 +134,31 @@ interface NavItem {
         color: var(--mat-sys-on-surface);
       }
 
-      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item {
-        color: var(--mat-sys-on-surface-variant);
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item,
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item .mdc-list-item__primary-text,
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item .mat-mdc-list-item-title,
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item span {
+        color: var(--mat-sys-on-surface-variant) !important;
       }
 
       :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item:hover {
-        background-color: var(--mat-sys-surface-container-high);
+        background-color: var(--mat-sys-surface-container-high) !important;
       }
 
-      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item.active {
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item.active,
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item.active .mdc-list-item__primary-text,
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item.active span {
         background-color: var(--mat-sys-primary-container);
-        color: var(--mat-sys-on-primary-container);
+        color: var(--mat-sys-on-primary-container) !important;
+      }
+
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-icon,
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item .mat-icon {
+        color: var(--mat-sys-on-surface-variant) !important;
+      }
+
+      :host-context(.dark-theme) .sidenav ::ng-deep .mat-mdc-list-item.active .mat-icon {
+        color: var(--mat-sys-on-primary-container) !important;
       }
 
       .sidenav-header {
@@ -160,21 +174,31 @@ interface NavItem {
         font-weight: 500;
       }
 
-      .sidenav ::ng-deep .mat-mdc-list-item {
-        color: rgba(255, 255, 255, 0.8);
+      .sidenav ::ng-deep .mat-mdc-list-item,
+      .sidenav ::ng-deep .mat-mdc-list-item .mdc-list-item__primary-text,
+      .sidenav ::ng-deep .mat-mdc-list-item .mat-mdc-list-item-title,
+      .sidenav ::ng-deep .mat-mdc-list-item span {
+        color: rgba(255, 255, 255, 0.8) !important;
       }
 
       .sidenav ::ng-deep .mat-mdc-list-item:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.1) !important;
       }
 
-      .sidenav ::ng-deep .mat-mdc-list-item.active {
+      .sidenav ::ng-deep .mat-mdc-list-item.active,
+      .sidenav ::ng-deep .mat-mdc-list-item.active .mdc-list-item__primary-text,
+      .sidenav ::ng-deep .mat-mdc-list-item.active span {
         background-color: rgba(255, 255, 255, 0.2);
-        color: #fff;
+        color: #fff !important;
       }
 
-      .sidenav ::ng-deep .mat-icon {
-        color: inherit;
+      .sidenav ::ng-deep .mat-icon,
+      .sidenav ::ng-deep .mat-mdc-list-item .mat-icon {
+        color: rgba(255, 255, 255, 0.8) !important;
+      }
+
+      .sidenav ::ng-deep .mat-mdc-list-item.active .mat-icon {
+        color: #fff !important;
       }
 
       .sidenav-content {
@@ -209,50 +233,82 @@ interface NavItem {
         color: var(--mat-sys-on-surface-variant);
       }
 
+      /* Light theme - expansion panel */
       .nav-expansion-panel {
-        background: transparent;
-        box-shadow: none;
+        --mat-expansion-container-background-color: transparent;
+        --mat-expansion-header-text-color: rgba(255, 255, 255, 0.8);
+        --mat-expansion-header-indicator-color: rgba(255, 255, 255, 0.8);
+        --mat-expansion-container-text-color: rgba(255, 255, 255, 0.8);
+        background: transparent !important;
+        box-shadow: none !important;
+        color: rgba(255, 255, 255, 0.8) !important;
       }
 
       .nav-expansion-panel ::ng-deep .mat-expansion-panel-header {
         padding: 0 16px;
         height: 48px;
-        color: rgba(255, 255, 255, 0.8);
+        background: transparent !important;
       }
 
       .nav-expansion-panel ::ng-deep .mat-expansion-panel-header:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.1) !important;
       }
 
       .nav-expansion-panel ::ng-deep .mat-expansion-panel-body {
         padding: 0;
+        background: transparent;
       }
 
-      .nav-expansion-panel ::ng-deep .mat-panel-title {
+      .nav-expansion-panel ::ng-deep .mat-panel-title,
+      .nav-expansion-panel ::ng-deep .mat-panel-title span,
+      .nav-expansion-panel ::ng-deep .mat-panel-title mat-icon,
+      .nav-expansion-panel ::ng-deep .mat-content,
+      .nav-expansion-panel ::ng-deep .mat-expansion-panel-header-title {
         display: flex;
         align-items: center;
         gap: 16px;
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.8) !important;
       }
 
-      .nav-expansion-panel ::ng-deep .mat-expansion-indicator::after {
-        color: rgba(255, 255, 255, 0.8);
+      .nav-expansion-panel ::ng-deep .mat-expansion-indicator,
+      .nav-expansion-panel ::ng-deep .mat-expansion-indicator::after,
+      .nav-expansion-panel ::ng-deep .mat-expansion-indicator svg {
+        color: rgba(255, 255, 255, 0.8) !important;
+        fill: rgba(255, 255, 255, 0.8) !important;
+        border-color: rgba(255, 255, 255, 0.8) !important;
+      }
+
+      /* Dark theme - expansion panel */
+      :host-context(.dark-theme) .nav-expansion-panel {
+        --mat-expansion-container-background-color: transparent;
+        --mat-expansion-header-text-color: var(--mat-sys-on-surface-variant);
+        --mat-expansion-header-indicator-color: var(--mat-sys-on-surface-variant);
+        --mat-expansion-container-text-color: var(--mat-sys-on-surface-variant);
+        color: var(--mat-sys-on-surface-variant) !important;
       }
 
       :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-panel-header {
-        color: var(--mat-sys-on-surface-variant);
+        background: transparent !important;
       }
 
       :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-panel-header:hover {
-        background-color: var(--mat-sys-surface-container-high);
+        background-color: var(--mat-sys-surface-container-high) !important;
       }
 
-      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-panel-title {
-        color: var(--mat-sys-on-surface-variant);
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-panel-title,
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-panel-title span,
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-panel-title mat-icon,
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-content,
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-panel-header-title {
+        color: var(--mat-sys-on-surface-variant) !important;
       }
 
-      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-indicator::after {
-        color: var(--mat-sys-on-surface-variant);
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-indicator,
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-indicator::after,
+      :host-context(.dark-theme) .nav-expansion-panel ::ng-deep .mat-expansion-indicator svg {
+        color: var(--mat-sys-on-surface-variant) !important;
+        fill: var(--mat-sys-on-surface-variant) !important;
+        border-color: var(--mat-sys-on-surface-variant) !important;
       }
 
       .child-nav-item {
