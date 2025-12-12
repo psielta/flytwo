@@ -59,6 +59,65 @@ body {
   width: 100%;
 }
 
+// Fix sidebar - disable all focus/selection visual indicators
+.sidenav {
+  user-select: none !important;
+
+  * {
+    user-select: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  // Kill all pseudo-elements that might show overlays
+  *::before,
+  *::after {
+    box-shadow: none !important;
+  }
+
+  // Specifically target the unscoped content wrapper
+  .mat-mdc-list-item-unscoped-content {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+
+    &::before,
+    &::after {
+      display: none !important;
+      content: none !important;
+    }
+  }
+
+  // Target state layers
+  .mdc-list-item__primary-text,
+  .mdc-list-item__content,
+  .mat-mdc-list-item-icon {
+    background: transparent !important;
+
+    &::before,
+    &::after {
+      display: none !important;
+    }
+  }
+
+  // Disable ripples
+  .mat-ripple,
+  .mat-mdc-list-item-ripple,
+  .mdc-list-item__ripple {
+    display: none !important;
+  }
+
+  // Reset all MDC state layer tokens
+  .mat-mdc-list-item {
+    --mdc-list-list-item-focus-state-layer-color: transparent;
+    --mdc-list-list-item-focus-state-layer-opacity: 0;
+    --mdc-list-list-item-hover-state-layer-color: transparent;
+    --mdc-list-list-item-hover-state-layer-opacity: 0;
+    --mat-list-active-indicator-color: transparent;
+    --mat-list-active-indicator-shape: 0;
+  }
+}
+
 // ngx-charts dark mode support
 .ngx-charts {
   text {

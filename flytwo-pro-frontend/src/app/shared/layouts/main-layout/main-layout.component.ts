@@ -124,6 +124,7 @@ interface NavItem {
       .sidenav {
         width: 250px;
         background-color: var(--mat-sys-primary);
+        user-select: none;
       }
 
       :host-context(.dark-theme) .sidenav {
@@ -179,6 +180,33 @@ interface NavItem {
       .sidenav ::ng-deep .mat-mdc-list-item .mat-mdc-list-item-title,
       .sidenav ::ng-deep .mat-mdc-list-item span {
         color: rgba(255, 255, 255, 0.8) !important;
+      }
+
+      .sidenav ::ng-deep * {
+        outline: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+        user-select: none !important;
+      }
+
+      .sidenav ::ng-deep *::selection {
+        background: transparent !important;
+      }
+
+      .sidenav ::ng-deep .mat-mdc-focus-indicator::before {
+        display: none !important;
+      }
+
+      .sidenav ::ng-deep .mdc-list-item__primary-text::before,
+      .sidenav ::ng-deep .mdc-list-item__primary-text::after {
+        display: none !important;
+      }
+
+      .sidenav ::ng-deep .mdc-list-item--selected::before,
+      .sidenav ::ng-deep .mdc-list-item--activated::before,
+      .sidenav ::ng-deep .mdc-list-item:focus::before,
+      .sidenav ::ng-deep .mat-mdc-list-item.mdc-list-item--selected::before {
+        opacity: 0 !important;
+        display: none !important;
       }
 
       .sidenav ::ng-deep .mat-mdc-list-item:hover {
