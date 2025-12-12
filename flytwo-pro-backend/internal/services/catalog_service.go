@@ -96,13 +96,21 @@ type CatalogImportService struct {
 	pool    *pgxpool.Pool
 	queries *pgstore.Queries
 	log     *zap.Logger
+	cache   SearchCache
 }
 
-func NewCatalogImportService(pool *pgxpool.Pool) CatalogImportService {
+// SearchCache defines the minimal cache interface used by the catalog service.
+type SearchCache interface {
+	Get(ctx context.Context, key string, dest any) (bool, error)
+	Set(ctx context.Context, key string, value any) error
+}
+
+func NewCatalogImportService(pool *pgxpool.Pool, cache SearchCache) CatalogImportService {
 	return CatalogImportService{
 		pool:    pool,
 		queries: pgstore.New(pool),
 		log:     logger.Log,
+		cache:   cache,
 	}
 }
 
@@ -535,11 +543,27 @@ func (s *CatalogImportService) SearchCatmat(ctx context.Context, params CatmatSe
 		ncmCodeParam = params.NcmCode
 	}
 
+	cacheKey := fmt.Sprintf("catmat:q=%s|g=%v|c=%v|p=%v|n=%v|l=%d|o=%d",
+		params.Query, params.GroupCode, params.ClassCode, params.PdmCode, params.NcmCode, limit, offset)
+
+	if s.cache != nil {
+		var cached SearchResult[CatmatSearchItem]
+		ok, cacheErr := s.cache.Get(ctx, cacheKey, &cached)
+		if cacheErr == nil && ok {
+			return &cached, nil
+		}
+		if cacheErr != nil {
+			s.log.Debug("catmat cache get error", zap.Error(cacheErr))
+		} else {
+			s.log.Debug("catmat cache miss", zap.String("key", cacheKey))
+		}
+	}
+
 	// Execute the search function
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, group_code, group_name, class_code, class_name,
 		       pdm_code, pdm_name, item_code, item_description, ncm_code, rank
-		FROM catmat_search_fts($1, $2, $3, $4, $5, $6, $7)
+	FROM catmat_search_fts($1, $2, $3, $4, $5, $6, $7)
 	`, queryParam, groupCodeParam, classCodeParam, pdmCodeParam, ncmCodeParam, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search catmat: %w", err)
@@ -588,12 +612,20 @@ func (s *CatalogImportService) SearchCatmat(ctx context.Context, params CatmatSe
 		total = int64(len(items))
 	}
 
-	return &SearchResult[CatmatSearchItem]{
+	result := &SearchResult[CatmatSearchItem]{
 		Data:   items,
 		Total:  total,
 		Limit:  limit,
 		Offset: offset,
-	}, nil
+	}
+
+	if s.cache != nil {
+		if setErr := s.cache.Set(ctx, cacheKey, result); setErr != nil {
+			s.log.Debug("catmat cache set error", zap.Error(setErr))
+		}
+	}
+
+	return result, nil
 }
 
 // SearchCatser performs full-text search on CATSER items.
@@ -633,11 +665,27 @@ func (s *CatalogImportService) SearchCatser(ctx context.Context, params CatserSe
 		statusParam = params.Status
 	}
 
+	cacheKey := fmt.Sprintf("catser:q=%s|g=%v|c=%v|s=%v|st=%v|l=%d|o=%d",
+		params.Query, params.GroupCode, params.ClassCode, params.ServiceCode, params.Status, limit, offset)
+
+	if s.cache != nil {
+		var cached SearchResult[CatserSearchItem]
+		ok, cacheErr := s.cache.Get(ctx, cacheKey, &cached)
+		if cacheErr == nil && ok {
+			return &cached, nil
+		}
+		if cacheErr != nil {
+			s.log.Debug("catser cache get error", zap.Error(cacheErr))
+		} else {
+			s.log.Debug("catser cache miss", zap.String("key", cacheKey))
+		}
+	}
+
 	// Execute the search function
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, material_service_type, group_code, group_name, class_code,
 		       class_name, service_code, service_description, status, rank
-		FROM catser_search_fts($1, $2, $3, $4, $5, $6, $7)
+	FROM catser_search_fts($1, $2, $3, $4, $5, $6, $7)
 	`, queryParam, groupCodeParam, classCodeParam, serviceCodeParam, statusParam, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search catser: %w", err)
@@ -683,12 +731,20 @@ func (s *CatalogImportService) SearchCatser(ctx context.Context, params CatserSe
 		total = int64(len(items))
 	}
 
-	return &SearchResult[CatserSearchItem]{
+	result := &SearchResult[CatserSearchItem]{
 		Data:   items,
 		Total:  total,
 		Limit:  limit,
 		Offset: offset,
-	}, nil
+	}
+
+	if s.cache != nil {
+		if setErr := s.cache.Set(ctx, cacheKey, result); setErr != nil {
+			s.log.Debug("catser cache set error", zap.Error(setErr))
+		}
+	}
+
+	return result, nil
 }
 
 // GetCatalogStats returns statistics for both CATMAT and CATSER catalogs.

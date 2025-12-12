@@ -8,6 +8,7 @@ This is a Go-based API backend for FlyTwo Pro using PostgreSQL. The project foll
 - **Database**: PostgreSQL (running in Docker on port 5580)
 - **Web Framework**: chi/v5
 - **ORM/Query Builder**: sqlc with pgx/v5
+- **Caching**: Ristretto (L1 in-process) + Redis (L2 opcional para buscas CATMAT/CATSER)
 - **Validation**: go-playground/validator
 - **Logging**: uber-go/zap
 - **Documentation**: swaggo/swag (Swagger/OpenAPI)
@@ -943,7 +944,22 @@ GOBID_DATABASE_USER="ADM"
 GOBID_DATABASE_PASSWORD="2104"
 GOBID_DATABASE_HOST="localhost"
 GOBID_CSRF_KEY="<32-character-random-string>"
+# Cache (buscas CATMAT/CATSER)
+GOBID_REDIS_ADDR="localhost:6379"     # se vazio, só L1 (Ristretto)
+GOBID_REDIS_PASSWORD=""
+GOBID_REDIS_DB=0
+GOBID_CACHE_TTL_SECONDS=300
+GOBID_CACHE_L1_MAX_COST=10000         # custo máximo do L1
 ```
+
+## Cache (buscas CATMAT/CATSER)
+- Endpoints afetados: `GET /api/v1/catmat/search` e `GET /api/v1/catser/search`.
+- Arquitetura: L1 Ristretto (in-process) + L2 Redis (compartilhado, opcional).
+  - Fluxo: tenta L1 → tenta L2 → consulta Postgres → salva L2 → salva L1.
+  - Se `GOBID_REDIS_ADDR` estiver vazio, só L1 é usado.
+- Configuração via env (ver bloco acima): TTL (`GOBID_CACHE_TTL_SECONDS`), tamanho do L1 (`GOBID_CACHE_L1_MAX_COST`), host/db/credenciais do Redis.
+- Logs (DEBUG) mostram: `cache hit L1`, `cache hit L2`, `cache miss`, `cache set L1/L2`; use estes para verificar de onde veio o resultado.
+- Importações não invalidam cache: após importar planilhas, reinicie a API ou limpe Redis se precisar refletir imediatamente.
 
 ## Docker Setup
 PostgreSQL runs in Docker:

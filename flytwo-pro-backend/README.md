@@ -15,6 +15,7 @@ API backend em Go para o FlyTwo Pro, utilizando PostgreSQL como banco de dados. 
 | **swaggo/swag** | Documentacao Swagger/OpenAPI |
 | **testify** | Framework de testes |
 | **scs/v2** | Gerenciamento de sessoes |
+| **Ristretto + Redis** | Cache L1/L2 para buscas CATMAT/CATSER |
 
 ## Estrutura do Projeto
 
@@ -69,6 +70,12 @@ GOBID_DATABASE_USER="ADM"
 GOBID_DATABASE_PASSWORD="2104"
 GOBID_DATABASE_HOST="localhost"
 GOBID_CSRF_KEY="<chave-aleatoria-32-caracteres>"
+# Cache / Redis (opcional para busca)
+GOBID_REDIS_ADDR="localhost:6379"
+GOBID_REDIS_PASSWORD=""
+GOBID_REDIS_DB=0
+GOBID_CACHE_TTL_SECONDS=300
+GOBID_CACHE_L1_MAX_COST=10000
 ```
 
 ### 2. Subir o banco de dados
@@ -114,6 +121,16 @@ swag init -g cmd/api/main.go -o docs
 ```
 
 Nao ha mais passo manual de conversao; o servidor converte para OpenAPI 3 em tempo de execucao.
+
+## Cache de busca (CATMAT/CATSER)
+
+- Endpoints afetados: `GET /api/v1/catmat/search` e `GET /api/v1/catser/search`.
+- Arquitetura: L1 Ristretto (in-process) + L2 Redis (opcional). Fluxo: L1 → L2 → Postgres → set L2 → set L1.
+- Configuracao:
+  - Ligar Redis definindo `GOBID_REDIS_ADDR` (porta 6379 no docker-compose). Se vazio, apenas L1 e usado.
+  - TTL: `GOBID_CACHE_TTL_SECONDS` (padrao 300s). Tamanho L1: `GOBID_CACHE_L1_MAX_COST` (padrao 10000).
+- Observabilidade: logs DEBUG mostram `cache hit L1`, `cache hit L2`, `cache miss`, `cache set L1/L2`.
+- Invalidacao: importacoes nao limpam cache; se importar planilhas e quiser refletir imediatamente, reinicie a API ou limpe Redis.
 
 ## Comandos Uteis
 

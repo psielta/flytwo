@@ -5,10 +5,12 @@ import (
 	"encoding/gob"
 	"fmt"
 	"gobid/internal/api"
+	"gobid/internal/cache"
 	"gobid/internal/logger"
 	"gobid/internal/services"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	_ "gobid/docs" // Import generated swagger docs
@@ -76,13 +78,44 @@ func main() {
 
 	logger.Log.Info("Successfully connected to database")
 
+	// Cache configuration (L1 Ristretto, optional L2 Redis)
+	cacheTTLSeconds, _ := strconv.Atoi(os.Getenv("GOBID_CACHE_TTL_SECONDS"))
+	if cacheTTLSeconds == 0 {
+		cacheTTLSeconds = 300
+	}
+	l1MaxCost, _ := strconv.Atoi(os.Getenv("GOBID_CACHE_L1_MAX_COST"))
+	if l1MaxCost == 0 {
+		l1MaxCost = 10000
+	}
+	l1NumCounters := l1MaxCost * 10
+	cacheCfg := cache.Config{
+		L1NumCounters: int64(l1NumCounters),
+		L1MaxCost:     int64(l1MaxCost),
+		L1BufferItems: 64,
+		TTL:           time.Duration(cacheTTLSeconds) * time.Second,
+		RedisAddr:     os.Getenv("GOBID_REDIS_ADDR"),
+		RedisPassword: os.Getenv("GOBID_REDIS_PASSWORD"),
+		EnableL2:      os.Getenv("GOBID_REDIS_ADDR") != "",
+		Logger:        logger.Log,
+	}
+	if dbStr := os.Getenv("GOBID_REDIS_DB"); dbStr != "" {
+		if v, err := strconv.Atoi(dbStr); err == nil {
+			cacheCfg.RedisDB = v
+		}
+	}
+	appCache, err := cache.New(cacheCfg)
+	if err != nil {
+		logger.Log.Warn("Failed to initialize cache; continuing without cache", zap.Error(err))
+		appCache = nil
+	}
+
 	s := scs.New()
 	s.Store = pgxstore.New(pool)
 	s.Lifetime = 24 * time.Hour
 	s.Cookie.HttpOnly = true
 	s.Cookie.SameSite = http.SameSiteLaxMode
 	userService := services.NewUserService(pool)
-	catalogService := services.NewCatalogImportService(pool)
+	catalogService := services.NewCatalogImportService(pool, appCache)
 	api := api.Api{
 		Router:         chi.NewMux(),
 		UserService:    &userService,
