@@ -39,6 +39,12 @@ public static class PermissionCatalog
         public const string Criar = "Notificacoes.Criar";
     }
 
+    public static class Relatorios
+    {
+        public const string Visualizar = "Relatorios.Visualizar";
+        public const string Gerar = "Relatorios.Gerar";
+    }
+
     private static readonly PermissionDefinition[] AllPermissions =
     [
         new(
@@ -142,6 +148,18 @@ public static class PermissionCatalog
             Module: "Notificacoes",
             Action: "Criar",
             Description: "Permite criar notificacoes."
+        ),
+        new(
+            Key: Relatorios.Visualizar,
+            Module: "Relatorios",
+            Action: "Visualizar",
+            Description: "Permite visualizar jobs e status de relatorios."
+        ),
+        new(
+            Key: Relatorios.Gerar,
+            Module: "Relatorios",
+            Action: "Gerar",
+            Description: "Permite gerar relatorios (criar jobs)."
         )
     ];
 

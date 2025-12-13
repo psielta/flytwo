@@ -10,3 +10,10 @@
 
 # Windows
 nul
+
+# DLL
+/flytwo-backend/Workers/WorkerServicePrint/DLL/FastReport.dll
+/flytwo-backend/Workers/WorkerServicePrint/DLL/FastReport.Web.dll
+/flytwo-backend/Workers/WorkerServicePrint/DLL/FastReport.Web.xml
+/flytwo-backend/Workers/WorkerServicePrint/DLL/FastReport.xml
+/flytwo-backend/Workers/WorkerServicePrint/.env

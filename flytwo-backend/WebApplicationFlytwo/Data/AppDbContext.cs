@@ -17,6 +17,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<NotificationRecipient> NotificationRecipients => Set<NotificationRecipient>();
+    public DbSet<PrintJob> PrintJobs => Set<PrintJob>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -155,6 +157,48 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PrintJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.EmpresaId).IsRequired();
+            entity.HasIndex(e => new { e.EmpresaId, e.CreatedAtUtc });
+
+            entity.Property(e => e.CreatedByUserId).IsRequired().HasMaxLength(450);
+            entity.HasIndex(e => new { e.CreatedByUserId, e.CreatedAtUtc });
+
+            entity.Property(e => e.ReportKey).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Format).IsRequired();
+            entity.Property(e => e.Status).IsRequired();
+            entity.HasIndex(e => e.Status);
+
+            entity.Property(e => e.CreatedAtUtc)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(e => e.OutputBucket).HasMaxLength(200);
+            entity.Property(e => e.OutputKey).HasMaxLength(1024);
+            entity.Property(e => e.OutputUrl).HasMaxLength(2000);
+
+            entity.Property(e => e.ErrorMessage).HasMaxLength(4000);
+        });
+
+        modelBuilder.Entity<OutboxMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.PayloadJson).IsRequired();
+
+            entity.Property(e => e.OccurredAtUtc)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(e => e.LastError).HasMaxLength(4000);
+
+            entity.HasIndex(e => e.ProcessedAtUtc);
+            entity.HasIndex(e => e.LockedUntilUtc);
+            entity.HasIndex(e => e.OccurredAtUtc);
         });
     }
 }

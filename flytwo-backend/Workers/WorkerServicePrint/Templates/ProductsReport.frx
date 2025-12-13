@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report ScriptLanguage="CSharp" ReportInfo.Created="12/13/2025 00:00:00" ReportInfo.Modified="12/13/2025 00:00:00" ReportInfo.CreatorVersion="2025.2.0.0">
+  <Dictionary>
+    <BusinessObjectDataSource Name="Products" ReferenceName="Products" DataType="System.Int32" Enabled="true">
+      <Column Name="Id" DataType="System.Int32"/>
+      <Column Name="Name" DataType="System.String"/>
+      <Column Name="Category" DataType="System.String"/>
+      <Column Name="Price" DataType="System.String"/>
+      <Column Name="Sku" DataType="System.String"/>
+      <Column Name="StockQuantity" DataType="System.Int32"/>
+      <Column Name="IsActive" DataType="System.Boolean"/>
+    </BusinessObjectDataSource>
+  </Dictionary>
+  <ReportPage Name="Page1" Watermark.Font="Arial, 60pt">
+    <ReportTitleBand Name="ReportTitle1" Width="718.2" Height="37.8">
+      <TextObject Name="Text1" Left="18.9" Top="9.45" Width="680.4" Height="18.9" Text="Products Report" HorzAlign="Center" Font="Times New Roman, 12pt, style=Bold"/>
+    </ReportTitleBand>
+    <PageHeaderBand Name="PageHeader1" Top="41.8" Width="718.2" Height="28.35">
+      <TextObject Name="H1" Left="9.45" Width="56.7" Height="18.9" Text="Id" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+      <TextObject Name="H2" Left="75.6" Width="198.45" Height="18.9" Text="Name" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+      <TextObject Name="H3" Left="283.5" Width="113.4" Height="18.9" Text="Category" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+      <TextObject Name="H4" Left="406.35" Width="75.6" Height="18.9" Text="Price" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+      <TextObject Name="H5" Left="491.4" Width="132.3" Height="18.9" Text="Sku" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+      <TextObject Name="H6" Left="633.15" Width="75.6" Height="18.9" Text="Stock" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+    </PageHeaderBand>
+    <DataBand Name="Data1" Top="74.15" Width="718.2" Height="18.9" DataSource="Products">
+      <TextObject Name="T1" Left="9.45" Width="56.7" Height="18.9" Text="[Products.Id]" HorzAlign="Center" Font="Times New Roman, 10pt"/>
+      <TextObject Name="T2" Left="75.6" Width="198.45" Height="18.9" Text="[Products.Name]" Font="Times New Roman, 10pt"/>
+      <TextObject Name="T3" Left="283.5" Width="113.4" Height="18.9" Text="[Products.Category]" HorzAlign="Center" Font="Times New Roman, 10pt"/>
+      <TextObject Name="T4" Left="406.35" Width="75.6" Height="18.9" Text="[Products.Price]" HorzAlign="Right" Font="Times New Roman, 10pt"/>
+      <TextObject Name="T5" Left="491.4" Width="132.3" Height="18.9" Text="[Products.Sku]" Font="Times New Roman, 10pt"/>
+      <TextObject Name="T6" Left="633.15" Width="75.6" Height="18.9" Text="[Products.StockQuantity]" HorzAlign="Center" Font="Times New Roman, 10pt"/>
+    </DataBand>
+    <PageFooterBand Name="PageFooter1" Top="97.05" Width="718.2" Height="18.9">
+      <TextObject Name="F1" Left="623.7" Width="94.5" Height="18.9" Text="[Page]" HorzAlign="Center" Font="Times New Roman, 10pt, style=Bold"/>
+    </PageFooterBand>
+  </ReportPage>
+</Report>
+

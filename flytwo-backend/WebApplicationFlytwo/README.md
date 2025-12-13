@@ -695,3 +695,86 @@ Sistema completo de notificacoes com persistencia (PostgreSQL/EF Core) + realtim
 
 - Operacoes de `ProductController` (criar/editar/excluir) geram notificacao `scope=Empresa` com `category=Produtos`
 - Operacoes de `TodoController` (criar/editar/excluir) geram notificacao `scope=Empresa` com `category=Todos`
+
+## Relatorios / Impressao (Outbox + RabbitMQ + Redis + SignalR + S3)
+
+Feature para gerar relatorios via jobs assA-ncronos (PDF/XLSX) usando outbox pattern:
+
+1) Frontend cria um job (`POST /api/print/jobs`)
+2) API grava `PrintJob` + `OutboxMessage` na mesma transacao
+3) `OutboxRelayService` publica o evento no RabbitMQ
+4) Worker consome a fila, gera o arquivo via FastReport e faz upload no S3
+5) Worker publica progresso e resultado via Redis Pub/Sub
+6) API recebe via `RedisNotificationService` e repassa para o frontend via SignalR (`/hubs/print`)
+7) Ao concluir/falhar, a API cria uma notificacao persistida (scope Usuario) usando o sistema de notificacoes
+
+### Permissoes / Policies
+
+- `Relatorios.Gerar`: permite criar jobs de relatorio
+- `Relatorios.Visualizar`: permite consultar status do job
+
+### API Endpoints (PrintController)
+
+| Method | Route | Policy | Description |
+|--------|-------|--------|-------------|
+| POST | `/api/print/jobs` | `Relatorios.Gerar` | Cria um job assA-ncrono |
+| GET | `/api/print/jobs/{id}` | `Relatorios.Visualizar` | Consulta status/progresso/URL de download (somente dono; admin pode ver na mesma empresa) |
+| GET | `/api/print/internal/jobs/{id}/work-item` | (API key) | Endpoint interno para o worker buscar dados do relatorio |
+
+**Create job model**
+- `CreatePrintJobRequest`: `{ "reportKey": "weather-forecast|products", "format": 0|1, "parameters": { ... } }`
+  - `format`: `0=Pdf`, `1=Xlsx`
+  - `parameters` (opcional):
+    - `weather-forecast`: `{ "days": 1..30 }`
+    - `products`: `{ "onlyActive": true|false, "category": "string" }`
+
+### SignalR (PrintHub)
+
+- Hub: `/hubs/print` (autenticado via JWT; em WebSockets o token pode ir em `?access_token=...`)
+- Evento:
+  - Metodo: `PrintJobProgress(payload)`
+  - Payload (exemplo):
+    ```json
+    {
+      "jobId": "guid",
+      "status": "Processing|Completed|Failed|Queued",
+      "current": 50,
+      "total": 1000,
+      "message": "Item 50/1000",
+      "percent": 5,
+      "outputUrl": "https://...",
+      "outputExpiresAtUtc": "2025-12-13T00:00:00Z",
+      "errorMessage": null,
+      "occurredAtUtc": "2025-12-13T00:00:00Z"
+    }
+    ```
+
+### Configuracao (appsettings)
+
+- RabbitMQ (`RabbitMq:*`): host/porta/queue (`flytwo.print.jobs`)
+- Redis Pub/Sub (`Print:RedisChannel`): canal default `flytwo:print:events`
+- Worker API key (`Print:WorkerApiKey`): header `X-Worker-Api-Key` usado pelo worker no endpoint interno
+
+### Worker (WorkerServicePrint)
+
+- Consome a fila RabbitMQ `flytwo.print.jobs`
+- Busca dados do relatorio na API via endpoint interno `/api/print/internal/jobs/{id}/work-item`
+- Publica eventos no Redis `flytwo:print:events` (progress/completed/failed)
+- Gera arquivos via FastReport e faz upload no S3
+  - Credenciais via `.env` (ver `Workers/WorkerServicePrint/.env.example`)
+
+**Docs do worker**
+- Veja `Workers/WorkerServicePrint/README.md`
+
+**Como testar o fluxo (local)**
+```bash
+cd D:\FlyTwo
+docker-compose up -d
+
+cd D:\FlyTwo\flytwo-backend
+dotnet ef database update --project WebApplicationFlytwo --startup-project WebApplicationFlytwo --configuration Release
+dotnet run --project WebApplicationFlytwo
+
+# em outro terminal
+dotnet run --project Workers/WorkerServicePrint/WorkerServicePrint.csproj
+```

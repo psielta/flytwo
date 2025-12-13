@@ -14,6 +14,7 @@ using WebApplicationFlytwo.Filters;
 using WebApplicationFlytwo.Mappings;
 using WebApplicationFlytwo.Security;
 using WebApplicationFlytwo.Services;
+using StackExchange.Redis;
 using ZiggyCreatures.Caching.Fusion;
 using ZiggyCreatures.Caching.Fusion.Serialization.NewtonsoftJson;
 using System.Text;
@@ -103,7 +104,8 @@ try
 
                     if (!string.IsNullOrWhiteSpace(accessToken) &&
                         (path.StartsWithSegments("/hubs/auth", StringComparison.OrdinalIgnoreCase) ||
-                         path.StartsWithSegments("/hubs/notifications", StringComparison.OrdinalIgnoreCase)))
+                         path.StartsWithSegments("/hubs/notifications", StringComparison.OrdinalIgnoreCase) ||
+                         path.StartsWithSegments("/hubs/print", StringComparison.OrdinalIgnoreCase)))
                     {
                         context.Token = accessToken;
                     }
@@ -126,6 +128,23 @@ try
     builder.Services.AddSignalR();
     builder.Services.AddScoped<IAuthRealtimeNotifier, AuthRealtimeNotifier>();
     builder.Services.AddScoped<INotificationService, NotificationService>();
+    builder.Services.AddScoped<IPrintJobService, PrintJobService>();
+
+    // RabbitMQ + Outbox Relay
+    builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
+    builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
+    builder.Services.AddHostedService<OutboxRelayService>();
+
+    // Redis Pub/Sub relay to SignalR for print progress
+    builder.Services.Configure<PrintOptions>(builder.Configuration.GetSection("Print"));
+    builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    {
+        var connectionString = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+        var options = ConfigurationOptions.Parse(connectionString);
+        options.AbortOnConnectFail = false;
+        return ConnectionMultiplexer.Connect(options);
+    });
+    builder.Services.AddHostedService<RedisNotificationService>();
 
     // Email (SMTP)
     builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
@@ -228,6 +247,7 @@ try
     app.MapControllers();
     app.MapHub<AuthHub>("/hubs/auth");
     app.MapHub<NotificationsHub>("/hubs/notifications");
+    app.MapHub<PrintHub>("/hubs/print");
 
     app.Run();
 }
