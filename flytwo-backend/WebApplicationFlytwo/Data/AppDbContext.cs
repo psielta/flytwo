@@ -15,6 +15,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Empresa> Empresas => Set<Empresa>();
     public DbSet<UserInvite> UserInvites => Set<UserInvite>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationRecipient> NotificationRecipients => Set<NotificationRecipient>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,6 +111,48 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
             entity.HasOne(e => e.User)
                 .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Scope).IsRequired();
+            entity.Property(e => e.EmpresaId);
+            entity.Property(e => e.TargetUserId).HasMaxLength(450);
+
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Message).IsRequired().HasMaxLength(4000);
+            entity.Property(e => e.Category).HasMaxLength(100);
+            entity.Property(e => e.CreatedByUserId).HasMaxLength(450);
+
+            entity.Property(e => e.CreatedAtUtc)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.CreatedAtUtc);
+            entity.HasIndex(e => new { e.Scope, e.EmpresaId });
+            entity.HasIndex(e => e.TargetUserId);
+
+            entity.HasMany(e => e.Recipients)
+                .WithOne(r => r.Notification)
+                .HasForeignKey(r => r.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<NotificationRecipient>(entity =>
+        {
+            entity.HasKey(e => new { e.NotificationId, e.UserId });
+
+            entity.Property(e => e.UserId)
+                .IsRequired()
+                .HasMaxLength(450);
+
+            entity.HasIndex(e => new { e.UserId, e.ReadAtUtc, e.NotificationId });
+
+            entity.HasOne(e => e.User)
+                .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

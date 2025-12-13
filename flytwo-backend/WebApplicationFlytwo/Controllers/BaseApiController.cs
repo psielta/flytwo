@@ -1,9 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
+using WebApplicationFlytwo.DTOs;
 using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Security;
+using WebApplicationFlytwo.Services;
 
 namespace WebApplicationFlytwo.Controllers;
 
@@ -46,5 +49,67 @@ public abstract class BaseApiController : ControllerBase
             return Task.FromResult<ApplicationUser?>(null);
 
         return userManager.FindByIdAsync(UserId);
+    }
+
+    protected Task<NotificationDto?> NotifyAsync(CreateNotificationRequest request)
+    {
+        if (UserId is null)
+            return Task.FromResult<NotificationDto?>(null);
+
+        var service = HttpContext?.RequestServices?.GetService<INotificationService>();
+        if (service is null)
+            return Task.FromResult<NotificationDto?>(null);
+
+        return service.CreateAsync(request, UserId, EmpresaId);
+    }
+
+    protected Task<NotificationDto?> NotifySystemAsync(
+        string title,
+        string message,
+        string? category = null,
+        int? severity = null)
+    {
+        return NotifyAsync(new CreateNotificationRequest
+        {
+            Scope = NotificationScope.System,
+            Title = title,
+            Message = message,
+            Category = category,
+            Severity = severity
+        });
+    }
+
+    protected Task<NotificationDto?> NotifyEmpresaAsync(
+        string title,
+        string message,
+        string? category = null,
+        int? severity = null)
+    {
+        return NotifyAsync(new CreateNotificationRequest
+        {
+            Scope = NotificationScope.Empresa,
+            Title = title,
+            Message = message,
+            Category = category,
+            Severity = severity
+        });
+    }
+
+    protected Task<NotificationDto?> NotifyUserAsync(
+        string targetUserId,
+        string title,
+        string message,
+        string? category = null,
+        int? severity = null)
+    {
+        return NotifyAsync(new CreateNotificationRequest
+        {
+            Scope = NotificationScope.Usuario,
+            TargetUserId = targetUserId,
+            Title = title,
+            Message = message,
+            Category = category,
+            Severity = severity
+        });
     }
 }

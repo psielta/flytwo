@@ -281,6 +281,11 @@ public class ProductController : BaseApiController
         // Invalidate list caches
         await InvalidateListCaches(empresaId, product.Category);
 
+        await NotifyEmpresaAsync(
+            "Produto criado",
+            $"Produto '{product.Name}' (SKU {product.Sku}) foi criado por {UserNameOrEmail ?? UserId}.",
+            category: "Produtos");
+
         _logger.LogInformation("Created product with id {Id}", product.Id);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, _mapper.Map<ProductDto>(product));
     }
@@ -329,6 +334,11 @@ public class ProductController : BaseApiController
             await InvalidateListCaches(empresaId, request.Category);
         }
 
+        await NotifyEmpresaAsync(
+            "Produto atualizado",
+            $"Produto '{product.Name}' (ID {product.Id}) foi atualizado por {UserNameOrEmail ?? UserId}.",
+            category: "Produtos");
+
         _logger.LogInformation("Updated product with id {Id}", id);
         return Ok(_mapper.Map<ProductDto>(product));
     }
@@ -362,6 +372,11 @@ public class ProductController : BaseApiController
         var prefix = $"emp:{empresaId}:";
         await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductById, id));
         await InvalidateListCaches(empresaId, product.Category);
+
+        await NotifyEmpresaAsync(
+            "Produto excluido",
+            $"Produto '{product.Name}' (SKU {product.Sku}) foi excluido por {UserNameOrEmail ?? UserId}.",
+            category: "Produtos");
 
         _logger.LogInformation("Deleted product with id {Id}", id);
         return NoContent();

@@ -91,6 +91,11 @@ public class TodoController : BaseApiController
         _context.Todos.Add(todo);
         await _context.SaveChangesAsync();
 
+        await NotifyEmpresaAsync(
+            "Todo criado",
+            $"Todo '{todo.Title}' (ID {todo.Id}) foi criado por {UserNameOrEmail ?? UserId}.",
+            category: "Todos");
+
         _logger.LogInformation("Created todo with id {Id}", todo.Id);
         return CreatedAtAction(nameof(GetById), new { id = todo.Id }, _mapper.Map<TodoDto>(todo));
     }
@@ -125,6 +130,11 @@ public class TodoController : BaseApiController
 
         await _context.SaveChangesAsync();
 
+        await NotifyEmpresaAsync(
+            "Todo atualizado",
+            $"Todo '{todo.Title}' (ID {todo.Id}) foi atualizado por {UserNameOrEmail ?? UserId}.",
+            category: "Todos");
+
         _logger.LogInformation("Updated todo with id {Id}", id);
         return Ok(_mapper.Map<TodoDto>(todo));
     }
@@ -153,6 +163,11 @@ public class TodoController : BaseApiController
 
         _context.Todos.Remove(todo);
         await _context.SaveChangesAsync();
+
+        await NotifyEmpresaAsync(
+            "Todo excluido",
+            $"Todo '{todo.Title}' (ID {todo.Id}) foi excluido por {UserNameOrEmail ?? UserId}.",
+            category: "Todos");
 
         _logger.LogInformation("Deleted todo with id {Id}", id);
         return NoContent();

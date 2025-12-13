@@ -620,3 +620,78 @@ O banco é populado automaticamente com **1000 produtos** em 8 categorias na pri
 - Electronics, Clothing, Books, Home, Sports, Toys, Food, Beauty
 - Preços entre $1 e $1000
 - 90% dos produtos ativos
+
+## Notificacoes (persistencia + realtime)
+
+Sistema completo de notificacoes com persistencia (PostgreSQL/EF Core) + realtime (SignalR) + inbox (lida/nao lida).
+
+### Permissoes / Policies
+
+- `Notificacoes.Visualizar`: permite consultar inbox e marcar como lida
+- `Notificacoes.Criar`: permite criar notificacoes
+
+### SignalR (NotificationsHub)
+
+- Hub: `/hubs/notifications` (autenticado via JWT; em WebSockets o token pode ir em `?access_token=...`)
+- Grupos:
+  - `system` (todos usuarios autenticados entram)
+  - `empresa:{empresaId}` (usuarios da empresa do claim `empresaId`)
+  - `user:{userId}` (usuario autenticado)
+- Evento:
+  - Metodo: `NotificationPushed(payload)`
+  - Payload:
+    ```json
+    {
+      "id": "guid",
+      "scope": 0,
+      "empresaId": "guid|null",
+      "targetUserId": "string|null",
+      "title": "string",
+      "message": "string",
+      "category": "string|null",
+      "severity": 0,
+      "createdAtUtc": "2025-12-13T00:00:00Z"
+    }
+    ```
+
+### API Endpoints (NotificationsController)
+
+| Method | Route | Policy | Description |
+|--------|-------|--------|-------------|
+| POST | `/api/notifications` | `Notificacoes.Criar` | Cria uma notificacao (DB + push SignalR) |
+| GET | `/api/notifications/inbox` | `Notificacoes.Visualizar` | Inbox do usuario autenticado (paged + filtros) |
+| POST | `/api/notifications/{id}/read` | `Notificacoes.Visualizar` | Marca uma notificacao como lida |
+| POST | `/api/notifications/read-all` | `Notificacoes.Visualizar` | Marca todas como lidas |
+
+### Scopes e isolamento (multi-tenant)
+
+- `0 (System)`: todos usuarios do sistema inteiro podem ver
+- `1 (Empresa)`: somente usuarios com a mesma `EmpresaId` (claim `empresaId`)
+- `2 (Usuario)`: somente o usuario alvo (`TargetUserId`)
+
+### Requests / filtros
+
+- CreateNotificationRequest:
+  - `{ "scope": 0|1|2, "empresaId": "guid?" , "targetUserId": "string?", "title": "string", "message": "string", "category": "string?", "severity": "int?" }`
+  - Regras:
+    - `System`: `empresaId` e `targetUserId` devem ser `null`
+    - `Empresa`: `empresaId` pode ser `null` (usa a empresa do usuario autenticado); se vier, deve ser igual ao claim `empresaId`
+    - `Usuario`: `targetUserId` obrigatorio e precisa existir na mesma empresa do criador
+- GET inbox query:
+  - `unreadOnly=true|false`
+  - `page=1..`
+  - `pageSize=1..100`
+  - `fromUtc=2025-12-01T00:00:00Z` (opcional)
+  - `toUtc=2025-12-31T23:59:59Z` (opcional)
+  - `severity=0..` (opcional)
+
+### Persistencia / Escalabilidade (Scope System)
+
+- `System` usa estrategia "lazy recipients": nao cria `NotificationRecipient` para todos usuarios na criacao.
+- O inbox faz `left join` com `NotificationRecipients` para inferir lido/nao lido por usuario.
+- Ao marcar como lida (ou read-all), o backend cria/atualiza `NotificationRecipient` para registrar `ReadAtUtc`.
+
+### Notificacoes automaticas
+
+- Operacoes de `ProductController` (criar/editar/excluir) geram notificacao `scope=Empresa` com `category=Produtos`
+- Operacoes de `TodoController` (criar/editar/excluir) geram notificacao `scope=Empresa` com `category=Todos`

@@ -33,6 +33,12 @@ public static class PermissionCatalog
         public const string Excluir = "Todos.Excluir";
     }
 
+    public static class Notificacoes
+    {
+        public const string Visualizar = "Notificacoes.Visualizar";
+        public const string Criar = "Notificacoes.Criar";
+    }
+
     private static readonly PermissionDefinition[] AllPermissions =
     [
         new(
@@ -124,6 +130,18 @@ public static class PermissionCatalog
             Module: "Todos",
             Action: "Excluir",
             Description: "Permite excluir todos da empresa."
+        ),
+        new(
+            Key: Notificacoes.Visualizar,
+            Module: "Notificacoes",
+            Action: "Visualizar",
+            Description: "Permite visualizar notificacoes (inbox)."
+        ),
+        new(
+            Key: Notificacoes.Criar,
+            Module: "Notificacoes",
+            Action: "Criar",
+            Description: "Permite criar notificacoes."
         )
     ];
 

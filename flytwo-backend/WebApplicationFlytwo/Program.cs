@@ -102,7 +102,8 @@ try
                     var path = context.HttpContext.Request.Path;
 
                     if (!string.IsNullOrWhiteSpace(accessToken) &&
-                        path.StartsWithSegments("/hubs/auth", StringComparison.OrdinalIgnoreCase))
+                        (path.StartsWithSegments("/hubs/auth", StringComparison.OrdinalIgnoreCase) ||
+                         path.StartsWithSegments("/hubs/notifications", StringComparison.OrdinalIgnoreCase)))
                     {
                         context.Token = accessToken;
                     }
@@ -124,6 +125,7 @@ try
     // SignalR (real-time notifications, e.g., roles/permissions updates)
     builder.Services.AddSignalR();
     builder.Services.AddScoped<IAuthRealtimeNotifier, AuthRealtimeNotifier>();
+    builder.Services.AddScoped<INotificationService, NotificationService>();
 
     // Email (SMTP)
     builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
@@ -225,6 +227,7 @@ try
 
     app.MapControllers();
     app.MapHub<AuthHub>("/hubs/auth");
+    app.MapHub<NotificationsHub>("/hubs/notifications");
 
     app.Run();
 }
