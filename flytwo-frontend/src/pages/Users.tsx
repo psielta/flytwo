@@ -29,24 +29,8 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useAuth } from "../auth/useAuth";
 import { Permissions } from "../auth/authTypes";
 import { NoPermission } from "../components/NoPermission";
-import { API_BASE_URL } from "../api/apiClientFactory";
-import { getAccessToken } from "../auth/authUtils";
-
-interface Usuario {
-  id: string;
-  email: string;
-  fullName: string | null;
-  empresaId: string | null;
-  roles: string[];
-  permissions: string[];
-}
-
-interface PermissionDefinition {
-  key: string;
-  module: string;
-  action: string;
-  description: string;
-}
+import { getApiClient } from "../api/apiClientFactory";
+import type { UsuarioResponse, PermissionDefinition } from "../api/api-client";
 
 const CreateUserSchema = Yup.object().shape({
   email: Yup.string()
@@ -86,15 +70,15 @@ const initialFormValues: UserFormValues = {
 export function Users() {
   const { hasPermission } = useAuth();
 
-  const [users, setUsers] = useState<Usuario[]>([]);
+  const [users, setUsers] = useState<UsuarioResponse[]>([]);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<PermissionDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<Usuario | null>(null);
+  const [editingUser, setEditingUser] = useState<UsuarioResponse | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<Usuario | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UsuarioResponse | null>(null);
   const [formValues, setFormValues] = useState<UserFormValues>(initialFormValues);
 
   const canView = hasPermission(Permissions.USUARIOS_VISUALIZAR);
@@ -109,25 +93,11 @@ export function Users() {
       setLoading(true);
       setError(null);
 
-      const headers = {
-        "Authorization": `Bearer ${getAccessToken()}`,
-        "Content-Type": "application/json",
-      };
-
-      const [usersRes, rolesRes, permsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/usuarios`, { headers, signal }),
-        fetch(`${API_BASE_URL}/api/usuarios/roles`, { headers, signal }),
-        fetch(`${API_BASE_URL}/api/usuarios/permissoes`, { headers, signal }),
-      ]);
-
-      if (!usersRes.ok) throw new Error("Falha ao carregar usuarios");
-      if (!rolesRes.ok) throw new Error("Falha ao carregar roles");
-      if (!permsRes.ok) throw new Error("Falha ao carregar permissoes");
-
+      const client = getApiClient();
       const [usersData, rolesData, permsData] = await Promise.all([
-        usersRes.json(),
-        rolesRes.json(),
-        permsRes.json(),
+        client.usuariosAll(signal),
+        client.roles(signal),
+        client.permissoes(signal),
       ]);
 
       setUsers(usersData);
@@ -150,44 +120,23 @@ export function Users() {
   const handleSubmit = async (values: UserFormValues, { resetForm }: { resetForm: () => void }) => {
     try {
       setError(null);
-      const headers = {
-        "Authorization": `Bearer ${getAccessToken()}`,
-        "Content-Type": "application/json",
-      };
+      const client = getApiClient();
 
       if (editingUser) {
-        const response = await fetch(`${API_BASE_URL}/api/usuarios/${editingUser.id}`, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({
-            email: values.email,
-            fullName: values.fullName || null,
-            roles: values.roles,
-            permissions: values.permissions,
-          }),
+        await client.usuariosPUT(editingUser.id!, {
+          email: values.email,
+          fullName: values.fullName || undefined,
+          roles: values.roles,
+          permissions: values.permissions,
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || errorData.title || "Falha ao atualizar usuario");
-        }
       } else {
-        const response = await fetch(`${API_BASE_URL}/api/usuarios`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            email: values.email,
-            password: values.password,
-            fullName: values.fullName || null,
-            roles: values.roles,
-            permissions: values.permissions,
-          }),
+        await client.usuariosPOST({
+          email: values.email,
+          password: values.password,
+          fullName: values.fullName || undefined,
+          roles: values.roles,
+          permissions: values.permissions,
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || errorData.title || "Falha ao criar usuario");
-        }
       }
 
       resetForm();
@@ -204,18 +153,8 @@ export function Users() {
     if (!userToDelete) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/usuarios/${userToDelete.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || errorData.title || "Falha ao excluir usuario");
-      }
-
+      const client = getApiClient();
+      await client.usuariosDELETE(userToDelete.id!);
       setDeleteConfirmOpen(false);
       setUserToDelete(null);
       fetchData();
@@ -224,10 +163,10 @@ export function Users() {
     }
   };
 
-  const startEditing = (user: Usuario) => {
+  const startEditing = (user: UsuarioResponse) => {
     setEditingUser(user);
     setFormValues({
-      email: user.email,
+      email: user.email || "",
       fullName: user.fullName || "",
       password: "",
       roles: user.roles || [],
@@ -244,10 +183,11 @@ export function Users() {
 
   // Group permissions by module
   const permissionsByModule = availablePermissions.reduce((acc, perm) => {
-    if (!acc[perm.module]) {
-      acc[perm.module] = [];
+    const module = perm.module || "Outros";
+    if (!acc[module]) {
+      acc[module] = [];
     }
-    acc[perm.module].push(perm);
+    acc[module].push(perm);
     return acc;
   }, {} as Record<string, PermissionDefinition[]>);
 
@@ -263,7 +203,7 @@ export function Users() {
       headerName: "Nome",
       flex: 1,
       minWidth: 150,
-      renderCell: (params: GridRenderCellParams<Usuario>) => (
+      renderCell: (params: GridRenderCellParams<UsuarioResponse>) => (
         <Typography variant="body2">
           {params.row.fullName || "-"}
         </Typography>
@@ -274,7 +214,7 @@ export function Users() {
       headerName: "Funcoes",
       flex: 1,
       minWidth: 150,
-      renderCell: (params: GridRenderCellParams<Usuario>) => (
+      renderCell: (params: GridRenderCellParams<UsuarioResponse>) => (
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
           {params.row.roles?.map((role) => (
             <Chip key={role} label={role} size="small" color="primary" />
@@ -290,7 +230,7 @@ export function Users() {
       headerAlign: "center",
       sortable: false,
       filterable: false,
-      renderCell: (params: GridRenderCellParams<Usuario>) => (
+      renderCell: (params: GridRenderCellParams<UsuarioResponse>) => (
         <>
           {canEdit && (
             <IconButton size="small" onClick={() => startEditing(params.row)} color="primary">
@@ -348,7 +288,7 @@ export function Users() {
         loading={loading}
         disableRowSelectionOnClick
         autoHeight
-        getRowId={(row) => row.id}
+        getRowId={(row) => row.id!}
         pageSizeOptions={[10, 25, 50]}
         initialState={{
           pagination: { paginationModel: { pageSize: 10 } },
@@ -443,7 +383,7 @@ export function Users() {
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                           <Typography>{module}</Typography>
                           <Chip
-                            label={`${perms.filter((p) => values.permissions.includes(p.key)).length}/${perms.length}`}
+                            label={`${perms.filter((p) => values.permissions.includes(p.key || "")).length}/${perms.length}`}
                             size="small"
                             sx={{ ml: 1 }}
                           />
@@ -455,10 +395,10 @@ export function Users() {
                                 key={perm.key}
                                 control={
                                   <Checkbox
-                                    checked={values.permissions.includes(perm.key)}
+                                    checked={values.permissions.includes(perm.key || "")}
                                     onChange={(e) => {
                                       if (e.target.checked) {
-                                        setFieldValue("permissions", [...values.permissions, perm.key]);
+                                        setFieldValue("permissions", [...values.permissions, perm.key || ""]);
                                       } else {
                                         setFieldValue("permissions", values.permissions.filter((p) => p !== perm.key));
                                       }

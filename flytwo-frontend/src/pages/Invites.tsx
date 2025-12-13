@@ -33,32 +33,8 @@ import LinkIcon from "@mui/icons-material/Link";
 import { useAuth } from "../auth/useAuth";
 import { Permissions } from "../auth/authTypes";
 import { NoPermission } from "../components/NoPermission";
-import { API_BASE_URL } from "../api/apiClientFactory";
-import { getAccessToken } from "../auth/authUtils";
-
-interface Invite {
-  id: string;
-  empresaId: string;
-  email: string;
-  roles: string[];
-  permissions: string[];
-  createdAt: string;
-  expiresAt: string;
-  redeemedAt: string | null;
-  revokedAt: string | null;
-}
-
-interface InviteCreateResponse extends Invite {
-  token: string;
-  inviteUrl: string;
-}
-
-interface PermissionDefinition {
-  key: string;
-  module: string;
-  action: string;
-  description: string;
-}
+import { getApiClient } from "../api/apiClientFactory";
+import type { UserInviteResponse, UserInviteCreateResponse, PermissionDefinition } from "../api/api-client";
 
 const InviteSchema = Yup.object().shape({
   email: Yup.string()
@@ -89,15 +65,15 @@ const initialFormValues: InviteFormValues = {
 export function Invites() {
   const { hasPermission } = useAuth();
 
-  const [invites, setInvites] = useState<Invite[]>([]);
+  const [invites, setInvites] = useState<UserInviteResponse[]>([]);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<PermissionDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [inviteToDelete, setInviteToDelete] = useState<Invite | null>(null);
-  const [createdInvite, setCreatedInvite] = useState<InviteCreateResponse | null>(null);
+  const [inviteToDelete, setInviteToDelete] = useState<UserInviteResponse | null>(null);
+  const [createdInvite, setCreatedInvite] = useState<UserInviteCreateResponse | null>(null);
   const [copySnackbar, setCopySnackbar] = useState(false);
 
   const canView = hasPermission(Permissions.USUARIOS_CONVITES_VISUALIZAR);
@@ -111,25 +87,11 @@ export function Invites() {
       setLoading(true);
       setError(null);
 
-      const headers = {
-        "Authorization": `Bearer ${getAccessToken()}`,
-        "Content-Type": "application/json",
-      };
-
-      const [invitesRes, rolesRes, permsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/usuarios/convites`, { headers, signal }),
-        fetch(`${API_BASE_URL}/api/usuarios/roles`, { headers, signal }),
-        fetch(`${API_BASE_URL}/api/usuarios/permissoes`, { headers, signal }),
-      ]);
-
-      if (!invitesRes.ok) throw new Error("Falha ao carregar convites");
-      if (!rolesRes.ok) throw new Error("Falha ao carregar roles");
-      if (!permsRes.ok) throw new Error("Falha ao carregar permissoes");
-
+      const client = getApiClient();
       const [invitesData, rolesData, permsData] = await Promise.all([
-        invitesRes.json(),
-        rolesRes.json(),
-        permsRes.json(),
+        client.convitesAll(signal),
+        client.roles(signal),
+        client.permissoes(signal),
       ]);
 
       setInvites(invitesData);
@@ -152,29 +114,16 @@ export function Invites() {
   const handleSubmit = async (values: InviteFormValues, { resetForm }: { resetForm: () => void }) => {
     try {
       setError(null);
-      const headers = {
-        "Authorization": `Bearer ${getAccessToken()}`,
-        "Content-Type": "application/json",
-      };
+      const client = getApiClient();
 
-      const response = await fetch(`${API_BASE_URL}/api/usuarios/convites`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          email: values.email,
-          expiresInDays: values.expiresInDays,
-          sendEmail: values.sendEmail,
-          roles: values.roles,
-          permissions: values.permissions,
-        }),
+      const createdData = await client.convitesPOST({
+        email: values.email,
+        expiresInDays: values.expiresInDays,
+        sendEmail: values.sendEmail,
+        roles: values.roles,
+        permissions: values.permissions,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || errorData.title || "Falha ao criar convite");
-      }
-
-      const createdData: InviteCreateResponse = await response.json();
       setCreatedInvite(createdData);
       resetForm();
       fetchData();
@@ -187,17 +136,8 @@ export function Invites() {
     if (!inviteToDelete) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/usuarios/convites/${inviteToDelete.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${getAccessToken()}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || errorData.title || "Falha ao revogar convite");
-      }
+      const client = getApiClient();
+      await client.convitesDELETE(inviteToDelete.id!);
 
       setDeleteConfirmOpen(false);
       setInviteToDelete(null);
@@ -222,19 +162,20 @@ export function Invites() {
     });
   };
 
-  const getInviteStatus = (invite: Invite) => {
+  const getInviteStatus = (invite: UserInviteResponse) => {
     if (invite.revokedAt) return { label: "Revogado", color: "error" as const };
     if (invite.redeemedAt) return { label: "Aceito", color: "success" as const };
-    if (new Date(invite.expiresAt) < new Date()) return { label: "Expirado", color: "warning" as const };
+    if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return { label: "Expirado", color: "warning" as const };
     return { label: "Pendente", color: "info" as const };
   };
 
   // Group permissions by module
   const permissionsByModule = availablePermissions.reduce((acc, perm) => {
-    if (!acc[perm.module]) {
-      acc[perm.module] = [];
+    const module = perm.module || "Outros";
+    if (!acc[module]) {
+      acc[module] = [];
     }
-    acc[perm.module].push(perm);
+    acc[module].push(perm);
     return acc;
   }, {} as Record<string, PermissionDefinition[]>);
 
@@ -250,7 +191,7 @@ export function Invites() {
       headerName: "Funcoes",
       flex: 1,
       minWidth: 150,
-      renderCell: (params: GridRenderCellParams<Invite>) => (
+      renderCell: (params: GridRenderCellParams<UserInviteResponse>) => (
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
           {params.row.roles?.map((role) => (
             <Chip key={role} label={role} size="small" color="primary" />
@@ -262,7 +203,7 @@ export function Invites() {
       field: "status",
       headerName: "Status",
       width: 120,
-      renderCell: (params: GridRenderCellParams<Invite>) => {
+      renderCell: (params: GridRenderCellParams<UserInviteResponse>) => {
         const status = getInviteStatus(params.row);
         return <Chip label={status.label} size="small" color={status.color} />;
       },
@@ -271,9 +212,9 @@ export function Invites() {
       field: "expiresAt",
       headerName: "Expira em",
       width: 160,
-      renderCell: (params: GridRenderCellParams<Invite>) => (
+      renderCell: (params: GridRenderCellParams<UserInviteResponse>) => (
         <Typography variant="body2">
-          {formatDate(params.row.expiresAt)}
+          {params.row.expiresAt ? formatDate(params.row.expiresAt) : "-"}
         </Typography>
       ),
     },
@@ -281,9 +222,9 @@ export function Invites() {
       field: "createdAt",
       headerName: "Criado em",
       width: 160,
-      renderCell: (params: GridRenderCellParams<Invite>) => (
+      renderCell: (params: GridRenderCellParams<UserInviteResponse>) => (
         <Typography variant="body2">
-          {formatDate(params.row.createdAt)}
+          {params.row.createdAt ? formatDate(params.row.createdAt) : "-"}
         </Typography>
       ),
     },
@@ -295,7 +236,7 @@ export function Invites() {
       headerAlign: "center",
       sortable: false,
       filterable: false,
-      renderCell: (params: GridRenderCellParams<Invite>) => {
+      renderCell: (params: GridRenderCellParams<UserInviteResponse>) => {
         const status = getInviteStatus(params.row);
         const canRevokeThis = canRevoke && status.label === "Pendente";
 
@@ -354,7 +295,7 @@ export function Invites() {
         loading={loading}
         disableRowSelectionOnClick
         autoHeight
-        getRowId={(row) => row.id}
+        getRowId={(row) => row.id!}
         pageSizeOptions={[10, 25, 50]}
         initialState={{
           pagination: { paginationModel: { pageSize: 10 } },
@@ -383,7 +324,7 @@ export function Invites() {
 
               <TextField
                 fullWidth
-                value={createdInvite.inviteUrl}
+                value={createdInvite.inviteUrl || ""}
                 InputProps={{
                   readOnly: true,
                   startAdornment: (
@@ -394,7 +335,7 @@ export function Invites() {
                   endAdornment: (
                     <InputAdornment position="end">
                       <Tooltip title="Copiar link">
-                        <IconButton onClick={() => copyToClipboard(createdInvite.inviteUrl)}>
+                        <IconButton onClick={() => copyToClipboard(createdInvite.inviteUrl || "")}>
                           <ContentCopyIcon />
                         </IconButton>
                       </Tooltip>
@@ -409,7 +350,7 @@ export function Invites() {
                   Email: <strong>{createdInvite.email}</strong>
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Expira em: <strong>{formatDate(createdInvite.expiresAt)}</strong>
+                  Expira em: <strong>{createdInvite.expiresAt ? formatDate(createdInvite.expiresAt) : "-"}</strong>
                 </Typography>
               </Box>
             </DialogContent>
@@ -501,7 +442,7 @@ export function Invites() {
                           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                             <Typography>{module}</Typography>
                             <Chip
-                              label={`${perms.filter((p) => values.permissions.includes(p.key)).length}/${perms.length}`}
+                              label={`${perms.filter((p) => values.permissions.includes(p.key || "")).length}/${perms.length}`}
                               size="small"
                               sx={{ ml: 1 }}
                             />
@@ -513,10 +454,10 @@ export function Invites() {
                                   key={perm.key}
                                   control={
                                     <Checkbox
-                                      checked={values.permissions.includes(perm.key)}
+                                      checked={values.permissions.includes(perm.key || "")}
                                       onChange={(e) => {
                                         if (e.target.checked) {
-                                          setFieldValue("permissions", [...values.permissions, perm.key]);
+                                          setFieldValue("permissions", [...values.permissions, perm.key || ""]);
                                         } else {
                                           setFieldValue("permissions", values.permissions.filter((p) => p !== perm.key));
                                         }

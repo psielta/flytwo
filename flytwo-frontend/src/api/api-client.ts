@@ -18,11 +18,10 @@ export class ApiClient {
     }
 
     /**
-     * Register a new user and return a JWT token
+     * Public registration is disabled (use invites / admin-managed users)
      * @param body (optional) 
-     * @return Created
      */
-    register(body?: RegisterRequest | undefined, signal?: AbortSignal): Promise<AuthResponse> {
+    register(body?: RegisterRequest | undefined, signal?: AbortSignal): Promise<void> {
         let url_ = this.baseUrl + "/api/Auth/register";
         url_ = url_.replace(/[?&]$/, "");
 
@@ -34,7 +33,6 @@ export class ApiClient {
             signal,
             headers: {
                 "Content-Type": "application/json-patch+json",
-                "Accept": "application/json"
             }
         };
 
@@ -43,33 +41,21 @@ export class ApiClient {
         });
     }
 
-    protected processRegister(response: Response): Promise<AuthResponse> {
+    protected processRegister(response: Response): Promise<void> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 201) {
-            return response.text().then((_responseText) => {
-            let result201: any = null;
-            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AuthResponse;
-            return result201;
-            });
-        } else if (status === 400) {
+        if (status === 400) {
             return response.text().then((_responseText) => {
             let result400: any = null;
             result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
             return throwException("Bad Request", status, _responseText, _headers, result400);
-            });
-        } else if (status === 409) {
-            return response.text().then((_responseText) => {
-            let result409: any = null;
-            result409 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
-            return throwException("Conflict", status, _responseText, _headers, result409);
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<AuthResponse>(null as any);
+        return Promise.resolve<void>(null as any);
     }
 
     /**
@@ -248,6 +234,211 @@ export class ApiClient {
             let result400: any = null;
             result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
             return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * Preview invitation details by token (flow C)
+     * @param token (optional) 
+     * @return OK
+     */
+    invitePreview(token?: string | undefined, signal?: AbortSignal): Promise<UserInvitePreviewResponse> {
+        let url_ = this.baseUrl + "/api/Auth/invite-preview?";
+        if (token === null)
+            throw new globalThis.Error("The parameter 'token' cannot be null.");
+        else if (token !== undefined)
+            url_ += "token=" + encodeURIComponent("" + token) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processInvitePreview(_response);
+        });
+    }
+
+    protected processInvitePreview(response: Response): Promise<UserInvitePreviewResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UserInvitePreviewResponse;
+            return result200;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UserInvitePreviewResponse>(null as any);
+    }
+
+    /**
+     * Register a new user using an invite token (flow C)
+     * @param body (optional) 
+     * @return Created
+     */
+    registerInvite(body?: RegisterInviteRequest | undefined, signal?: AbortSignal): Promise<AuthResponse> {
+        let url_ = this.baseUrl + "/api/Auth/register-invite";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRegisterInvite(_response);
+        });
+    }
+
+    protected processRegisterInvite(response: Response): Promise<AuthResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AuthResponse;
+            return result201;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status === 409) {
+            return response.text().then((_responseText) => {
+            let result409: any = null;
+            result409 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Conflict", status, _responseText, _headers, result409);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AuthResponse>(null as any);
+    }
+
+    /**
+     * Rotate refresh token and return a new JWT access token
+     * @param body (optional) 
+     * @return OK
+     */
+    refresh(body?: RefreshRequest | undefined, signal?: AbortSignal): Promise<AuthResponse> {
+        let url_ = this.baseUrl + "/api/Auth/refresh";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRefresh(_response);
+        });
+    }
+
+    protected processRefresh(response: Response): Promise<AuthResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AuthResponse;
+            return result200;
+            });
+        } else if (status === 401) {
+            return response.text().then((_responseText) => {
+            let result401: any = null;
+            result401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AuthResponse>(null as any);
+    }
+
+    /**
+     * Revoke refresh token (or revoke all tokens for the authenticated user)
+     * @param body (optional) 
+     * @return No Content
+     */
+    logout(body?: LogoutRequest | undefined, signal?: AbortSignal): Promise<void> {
+        let url_ = this.baseUrl + "/api/Auth/logout";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processLogout(_response);
+        });
+    }
+
+    protected processLogout(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
@@ -906,6 +1097,479 @@ export class ApiClient {
     }
 
     /**
+     * Listar convites de usuários da empresa
+     * @return OK
+     */
+    convitesAll(signal?: AbortSignal): Promise<UserInviteResponse[]> {
+        let url_ = this.baseUrl + "/api/usuarios/convites";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConvitesAll(_response);
+        });
+    }
+
+    protected processConvitesAll(response: Response): Promise<UserInviteResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UserInviteResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UserInviteResponse[]>(null as any);
+    }
+
+    /**
+     * Criar convite para usuário (flow C)
+     * @param body (optional) 
+     * @return Created
+     */
+    convitesPOST(body?: UserInviteCreateRequest | undefined, signal?: AbortSignal): Promise<UserInviteCreateResponse> {
+        let url_ = this.baseUrl + "/api/usuarios/convites";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConvitesPOST(_response);
+        });
+    }
+
+    protected processConvitesPOST(response: Response): Promise<UserInviteCreateResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UserInviteCreateResponse;
+            return result201;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 401) {
+            return response.text().then((_responseText) => {
+            let result401: any = null;
+            result401 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Unauthorized", status, _responseText, _headers, result401);
+            });
+        } else if (status === 409) {
+            return response.text().then((_responseText) => {
+            let result409: any = null;
+            result409 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Conflict", status, _responseText, _headers, result409);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UserInviteCreateResponse>(null as any);
+    }
+
+    /**
+     * Revogar convite
+     * @return No Content
+     */
+    convitesDELETE(id: string, signal?: AbortSignal): Promise<void> {
+        let url_ = this.baseUrl + "/api/usuarios/convites/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            signal,
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConvitesDELETE(_response);
+        });
+    }
+
+    protected processConvitesDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * Listar roles disponíveis
+     * @return OK
+     */
+    roles(signal?: AbortSignal): Promise<string[]> {
+        let url_ = this.baseUrl + "/api/usuarios/roles";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRoles(_response);
+        });
+    }
+
+    protected processRoles(response: Response): Promise<string[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as string[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<string[]>(null as any);
+    }
+
+    /**
+     * Listar permissões (claims) disponíveis
+     * @return OK
+     */
+    permissoes(signal?: AbortSignal): Promise<PermissionDefinition[]> {
+        let url_ = this.baseUrl + "/api/usuarios/permissoes";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPermissoes(_response);
+        });
+    }
+
+    protected processPermissoes(response: Response): Promise<PermissionDefinition[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PermissionDefinition[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PermissionDefinition[]>(null as any);
+    }
+
+    /**
+     * Listar usuários da empresa do usuário autenticado
+     * @return OK
+     */
+    usuariosAll(signal?: AbortSignal): Promise<UsuarioResponse[]> {
+        let url_ = this.baseUrl + "/api/usuarios";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUsuariosAll(_response);
+        });
+    }
+
+    protected processUsuariosAll(response: Response): Promise<UsuarioResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UsuarioResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UsuarioResponse[]>(null as any);
+    }
+
+    /**
+     * Criar usuário na empresa do usuário autenticado
+     * @param body (optional) 
+     * @return Created
+     */
+    usuariosPOST(body?: UsuarioCreateRequest | undefined, signal?: AbortSignal): Promise<UsuarioResponse> {
+        let url_ = this.baseUrl + "/api/usuarios";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUsuariosPOST(_response);
+        });
+    }
+
+    protected processUsuariosPOST(response: Response): Promise<UsuarioResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UsuarioResponse;
+            return result201;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 409) {
+            return response.text().then((_responseText) => {
+            let result409: any = null;
+            result409 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Conflict", status, _responseText, _headers, result409);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UsuarioResponse>(null as any);
+    }
+
+    /**
+     * Obter usuário por id (limitado à mesma empresa)
+     * @return OK
+     */
+    usuariosGET(id: string, signal?: AbortSignal): Promise<UsuarioResponse> {
+        let url_ = this.baseUrl + "/api/usuarios/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            signal,
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUsuariosGET(_response);
+        });
+    }
+
+    protected processUsuariosGET(response: Response): Promise<UsuarioResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UsuarioResponse;
+            return result200;
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UsuarioResponse>(null as any);
+    }
+
+    /**
+     * Atualizar usuário (limitado à mesma empresa)
+     * @param body (optional) 
+     * @return OK
+     */
+    usuariosPUT(id: string, body?: UsuarioUpdateRequest | undefined, signal?: AbortSignal): Promise<UsuarioResponse> {
+        let url_ = this.baseUrl + "/api/usuarios/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            signal,
+            headers: {
+                "Content-Type": "application/json-patch+json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUsuariosPUT(_response);
+        });
+    }
+
+    protected processUsuariosPUT(response: Response): Promise<UsuarioResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as UsuarioResponse;
+            return result200;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<UsuarioResponse>(null as any);
+    }
+
+    /**
+     * Excluir usuário (limitado à mesma empresa)
+     * @return No Content
+     */
+    usuariosDELETE(id: string, signal?: AbortSignal): Promise<void> {
+        let url_ = this.baseUrl + "/api/usuarios/{id}";
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            signal,
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUsuariosDELETE(_response);
+        });
+    }
+
+    protected processUsuariosDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status === 400) {
+            return response.text().then((_responseText) => {
+            let result400: any = null;
+            result400 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Bad Request", status, _responseText, _headers, result400);
+            });
+        } else if (status === 404) {
+            return response.text().then((_responseText) => {
+            let result404: any = null;
+            result404 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ProblemDetails;
+            return throwException("Not Found", status, _responseText, _headers, result404);
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
      * @return OK
      */
     getWeatherForecast(signal?: AbortSignal): Promise<WeatherForecast[]> {
@@ -946,9 +1610,13 @@ export class ApiClient {
 export interface AuthResponse {
     accessToken?: string | undefined;
     expiresAt?: string;
+    refreshToken?: string | undefined;
+    refreshTokenExpiresAt?: string | undefined;
     email?: string | undefined;
     fullName?: string | undefined;
+    empresaId?: string | undefined;
     roles?: string[] | undefined;
+    permissions?: string[] | undefined;
     tokenType?: string | undefined;
 }
 
@@ -973,6 +1641,17 @@ export interface ForgotPasswordRequest {
 export interface LoginRequest {
     email?: string | undefined;
     password?: string | undefined;
+}
+
+export interface LogoutRequest {
+    refreshToken?: string | undefined;
+}
+
+export interface PermissionDefinition {
+    key?: string | undefined;
+    module?: string | undefined;
+    action?: string | undefined;
+    description?: string | undefined;
 }
 
 export interface ProblemDetails {
@@ -1006,6 +1685,17 @@ export interface ProductDtoPagedResponse {
     readonly totalPages?: number;
     readonly hasPreviousPage?: boolean;
     readonly hasNextPage?: boolean;
+}
+
+export interface RefreshRequest {
+    refreshToken?: string | undefined;
+}
+
+export interface RegisterInviteRequest {
+    token?: string | undefined;
+    password?: string | undefined;
+    confirmPassword?: string | undefined;
+    fullName?: string | undefined;
 }
 
 export interface RegisterRequest {
@@ -1044,6 +1734,72 @@ export interface UpdateTodoRequest {
     title?: string | undefined;
     description?: string | undefined;
     isCompleted?: boolean;
+}
+
+export interface UserInviteCreateRequest {
+    email?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
+    expiresInDays?: number;
+    sendEmail?: boolean;
+}
+
+export interface UserInviteCreateResponse {
+    id?: string;
+    empresaId?: string;
+    email?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
+    createdAt?: string;
+    expiresAt?: string;
+    redeemedAt?: string | undefined;
+    revokedAt?: string | undefined;
+    token?: string | undefined;
+    inviteUrl?: string | undefined;
+}
+
+export interface UserInvitePreviewResponse {
+    email?: string | undefined;
+    companyName?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
+    expiresAt?: string;
+}
+
+export interface UserInviteResponse {
+    id?: string;
+    empresaId?: string;
+    email?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
+    createdAt?: string;
+    expiresAt?: string;
+    redeemedAt?: string | undefined;
+    revokedAt?: string | undefined;
+}
+
+export interface UsuarioCreateRequest {
+    email?: string | undefined;
+    password?: string | undefined;
+    fullName?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
+}
+
+export interface UsuarioResponse {
+    id?: string | undefined;
+    email?: string | undefined;
+    fullName?: string | undefined;
+    empresaId?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
+}
+
+export interface UsuarioUpdateRequest {
+    email?: string | undefined;
+    fullName?: string | undefined;
+    roles?: string[] | undefined;
+    permissions?: string[] | undefined;
 }
 
 export interface WeatherForecast {
