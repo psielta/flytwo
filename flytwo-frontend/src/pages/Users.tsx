@@ -19,6 +19,9 @@ import {
   AccordionSummary,
   AccordionDetails,
   CircularProgress,
+  Paper,
+  Tooltip,
+  Stack,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
@@ -26,6 +29,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import PersonIcon from "@mui/icons-material/Person";
 import { useAuth } from "../auth/useAuth";
 import { Permissions } from "../auth/authTypes";
 import { NoPermission } from "../components/NoPermission";
@@ -193,63 +197,186 @@ export function Users() {
 
   const columns: GridColDef[] = [
     {
-      field: "email",
-      headerName: "Email",
-      flex: 1,
-      minWidth: 200,
-    },
-    {
       field: "fullName",
-      headerName: "Nome",
-      flex: 1,
-      minWidth: 150,
+      headerName: "Usuario",
+      flex: 1.5,
+      minWidth: 250,
       renderCell: (params: GridRenderCellParams<UsuarioResponse>) => (
-        <Typography variant="body2">
-          {params.row.fullName || "-"}
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            width: "100%",
+            height: "100%",
+            py: 1,
+          }}
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              bgcolor: "primary.main",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <PersonIcon sx={{ color: "primary.contrastText", fontSize: 20 }} />
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {params.row.fullName || "-"}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                display: "block",
+              }}
+            >
+              {params.row.email}
+            </Typography>
+          </Box>
+        </Box>
       ),
     },
     {
       field: "roles",
       headerName: "Funcoes",
       flex: 1,
-      minWidth: 150,
+      minWidth: 180,
       renderCell: (params: GridRenderCellParams<UsuarioResponse>) => (
-        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-          {params.row.roles?.map((role) => (
-            <Chip key={role} label={role} size="small" color="primary" />
-          ))}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            height: "100%",
+            width: "100%",
+            py: 1,
+          }}
+        >
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {params.row.roles && params.row.roles.length > 0 ? (
+              params.row.roles.map((role) => (
+                <Chip
+                  key={role}
+                  label={role}
+                  size="small"
+                  color={role === "Admin" ? "error" : "primary"}
+                  variant={role === "Admin" ? "filled" : "outlined"}
+                  sx={{ fontWeight: 500 }}
+                />
+              ))
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                -
+              </Typography>
+            )}
+          </Stack>
         </Box>
       ),
     },
     {
+      field: "permissionsCount",
+      headerName: "Permissoes",
+      width: 120,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params: GridRenderCellParams<UsuarioResponse>) => {
+        const count = params.row.permissions?.length || 0;
+        return (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              width: "100%",
+            }}
+          >
+            <Chip
+              label={count}
+              size="small"
+              color={count > 0 ? "success" : "default"}
+              variant="outlined"
+              sx={{ minWidth: 40 }}
+            />
+          </Box>
+        );
+      },
+    },
+    {
       field: "actions",
       headerName: "Acoes",
-      width: 120,
+      width: 100,
       align: "center",
       headerAlign: "center",
       sortable: false,
       filterable: false,
+      disableColumnMenu: true,
       renderCell: (params: GridRenderCellParams<UsuarioResponse>) => (
-        <>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 0.5,
+            height: "100%",
+            width: "100%",
+          }}
+        >
           {canEdit && (
-            <IconButton size="small" onClick={() => startEditing(params.row)} color="primary">
-              <EditIcon />
-            </IconButton>
+            <Tooltip title="Editar usuario">
+              <IconButton
+                size="small"
+                onClick={() => startEditing(params.row)}
+                color="primary"
+                sx={{
+                  "&:hover": {
+                    bgcolor: "primary.light",
+                    color: "primary.contrastText",
+                  },
+                }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
           {canDelete && (
-            <IconButton
-              size="small"
-              onClick={() => {
-                setUserToDelete(params.row);
-                setDeleteConfirmOpen(true);
-              }}
-              color="error"
-            >
-              <DeleteIcon />
-            </IconButton>
+            <Tooltip title="Excluir usuario">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setUserToDelete(params.row);
+                  setDeleteConfirmOpen(true);
+                }}
+                color="error"
+                sx={{
+                  "&:hover": {
+                    bgcolor: "error.light",
+                    color: "error.contrastText",
+                  },
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
-        </>
+        </Box>
       ),
     },
   ];
@@ -282,21 +409,56 @@ export function Users() {
         </Alert>
       )}
 
-      <DataGrid
-        rows={users}
-        columns={columns}
-        loading={loading}
-        disableRowSelectionOnClick
-        autoHeight
-        getRowId={(row) => row.id!}
-        pageSizeOptions={[10, 25, 50]}
-        initialState={{
-          pagination: { paginationModel: { pageSize: 10 } },
+      <Paper
+        elevation={0}
+        sx={{
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 2,
+          overflow: "hidden",
         }}
-        localeText={{
-          noRowsLabel: "Nenhum usuario encontrado",
-        }}
-      />
+      >
+        <DataGrid
+          rows={users}
+          columns={columns}
+          loading={loading}
+          disableRowSelectionOnClick
+          autoHeight
+          getRowId={(row) => row.id!}
+          rowHeight={72}
+          pageSizeOptions={[10, 25, 50]}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 10 } },
+          }}
+          localeText={{
+            noRowsLabel: "Nenhum usuario encontrado",
+          }}
+          sx={{
+            border: 0,
+            "& .MuiDataGrid-columnHeaders": {
+              bgcolor: "action.hover",
+              borderBottom: 1,
+              borderColor: "divider",
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: 600,
+              fontSize: "0.875rem",
+            },
+            "& .MuiDataGrid-cell": {
+              borderColor: "divider",
+              display: "flex",
+              alignItems: "center",
+            },
+            "& .MuiDataGrid-row:hover": {
+              bgcolor: "action.hover",
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: 1,
+              borderColor: "divider",
+            },
+          }}
+        />
+      </Paper>
 
       {/* User Form Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
