@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { getApiClient, API_BASE_URL, AUTH_LOGOUT_EVENT } from "../api/apiClientFactory";
 import {
   getAccessToken,
@@ -15,6 +15,11 @@ import {
   type StoredUser,
 } from "./authUtils";
 import { AuthContext, type AuthUser, type AcceptInviteData } from "./authTypes";
+import {
+  startAuthHub,
+  stopAuthHub,
+  type AuthChangedPayload,
+} from "../realtime/authHub";
 
 interface AuthResponse {
   accessToken?: string;
@@ -32,6 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Ref to prevent concurrent refresh attempts from SignalR events
+  const isRefreshingRef = useRef(false);
+  // Ref to track if SignalR is connected
+  const signalRConnectedRef = useRef(false);
 
   const handleAuthResponse = useCallback((response: AuthResponse) => {
     const accessToken = response.accessToken || "";
@@ -90,6 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [handleAuthResponse]);
 
   const logout = useCallback(async () => {
+    // Stop SignalR connection first
+    if (signalRConnectedRef.current) {
+      signalRConnectedRef.current = false;
+      await stopAuthHub();
+    }
+
     const refreshToken = getRefreshToken();
 
     // Try to revoke the refresh token on the server
@@ -202,7 +218,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for auth:logout events from the API client
   useEffect(() => {
-    const handleLogoutEvent = () => {
+    const handleLogoutEvent = async () => {
+      // Stop SignalR on logout event
+      if (signalRConnectedRef.current) {
+        signalRConnectedRef.current = false;
+        await stopAuthHub();
+      }
       setUser(null);
       setToken(null);
     };
@@ -212,6 +233,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(AUTH_LOGOUT_EVENT, handleLogoutEvent);
     };
   }, []);
+
+  // SignalR connection for real-time auth updates
+  useEffect(() => {
+    const isAuthenticated = !!token && !!user;
+
+    if (isAuthenticated && !signalRConnectedRef.current) {
+      // Start SignalR connection when authenticated
+      const connectSignalR = async () => {
+        try {
+          await startAuthHub({
+            apiBaseUrl: API_BASE_URL,
+            getAccessToken,
+            onAuthChanged: async (payload: AuthChangedPayload) => {
+              // Prevent concurrent refresh attempts
+              if (isRefreshingRef.current) {
+                return;
+              }
+
+              isRefreshingRef.current = true;
+              try {
+                if (import.meta.env.DEV) {
+                  console.log("[AuthContext] Refreshing session due to:", payload.reason);
+                }
+
+                const refreshed = await refreshSession();
+                if (!refreshed) {
+                  // Refresh failed - logout
+                  clearAuthStorage();
+                  signalRConnectedRef.current = false;
+                  await stopAuthHub();
+                  setUser(null);
+                  setToken(null);
+                }
+              } finally {
+                isRefreshingRef.current = false;
+              }
+            },
+            onForceLogout: async (reason: string) => {
+              if (import.meta.env.DEV) {
+                console.log("[AuthContext] Force logout:", reason);
+              }
+              // Stop SignalR and clear session immediately
+              signalRConnectedRef.current = false;
+              await stopAuthHub();
+              clearAuthStorage();
+              setUser(null);
+              setToken(null);
+            },
+          });
+          signalRConnectedRef.current = true;
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error("[AuthContext] Failed to connect SignalR:", error);
+          }
+          // Don't fail authentication if SignalR fails to connect
+          // The user can still use the app, just without real-time updates
+        }
+      };
+
+      connectSignalR();
+    } else if (!isAuthenticated && signalRConnectedRef.current) {
+      // Stop SignalR connection when not authenticated
+      signalRConnectedRef.current = false;
+      stopAuthHub();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (signalRConnectedRef.current) {
+        signalRConnectedRef.current = false;
+        stopAuthHub();
+      }
+    };
+  }, [token, user, refreshSession]);
 
   const value = useMemo(() => ({
     user,

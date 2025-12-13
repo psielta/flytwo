@@ -16,6 +16,7 @@ React 19 + TypeScript + Vite SPA com Material UI e autenticacao JWT.
 | **Routing** | react-router-dom | 7.6.1 | Client-side routing |
 | **Forms** | formik | 2.4.6 | Form state management |
 | **Validation** | yup | 1.6.1 | Schema validation |
+| **Real-time** | @microsoft/signalr | 8.x | WebSocket para auth updates |
 
 ## Arquitetura
 
@@ -28,8 +29,10 @@ flytwo-frontend/
 │   ├── auth/
 │   │   ├── authTypes.ts         # Tipos e contexto de autenticacao
 │   │   ├── authUtils.ts         # Helpers para localStorage (token, user)
-│   │   ├── AuthContext.tsx      # Provider de autenticacao
+│   │   ├── AuthContext.tsx      # Provider de autenticacao + SignalR
 │   │   └── useAuth.ts           # Hook para usar auth
+│   ├── realtime/
+│   │   └── authHub.ts           # SignalR hub para auth em tempo real
 │   ├── components/
 │   │   ├── TodoList.tsx         # Todo CRUD component
 │   │   ├── ProductList.tsx      # Product CRUD component
@@ -88,6 +91,47 @@ flytwo-frontend/
 2. Backend envia email com link: `/reset-password?email=xxx&token=yyy`
 3. Usuario clica no link e define nova senha
 4. Apos sucesso, redireciona para `/login`
+
+### Refresh Token Rotativo
+
+O sistema usa refresh tokens rotativos para manter a sessao:
+
+1. Access token expira em 15 minutos (configuravel no backend)
+2. Refresh token e usado para obter novo access token
+3. Cada refresh gera um NOVO refresh token (rotacao)
+4. Se o refresh falhar (401), usuario e redirecionado para login
+
+### Atualizacao de Permissoes em Tempo Real (SignalR)
+
+O app conecta automaticamente no hub SignalR `/hubs/auth` quando o usuario esta logado.
+
+**Como funciona:**
+
+1. Quando logado, o frontend estabelece conexao WebSocket com o backend
+2. Se um admin alterar roles/permissoes do usuario, o backend envia evento `AuthChanged`
+3. O frontend recebe o evento e faz refresh automatico do token
+4. O novo token contem as permissoes atualizadas
+5. A UI reage automaticamente (menus, botoes, rotas)
+
+**Eventos tratados:**
+
+| Evento | Acao |
+|--------|------|
+| `AuthChanged` (reason != AccountDeleted) | Refresh do token para obter novas permissoes |
+| `AuthChanged` (reason == AccountDeleted) | Logout imediato |
+
+**Arquivos relacionados:**
+
+```
+src/realtime/authHub.ts    # Modulo SignalR para auth hub
+src/auth/AuthContext.tsx   # Integracao com o contexto de auth
+```
+
+**Reconnect automatico:**
+
+- Se a conexao cair, o SignalR tenta reconectar automaticamente
+- Backoff exponencial: 0s, 2s, 4s, 8s, 16s, max 30s
+- O `accessTokenFactory` sempre usa o token mais recente do storage
 
 ## Layout Admin
 
@@ -259,6 +303,8 @@ npx nswag run nswag.json
 ## Features
 
 - [x] Autenticacao JWT (login, register, logout)
+- [x] Refresh token rotativo com auto-refresh em 401
+- [x] Atualizacao de permissoes em tempo real (SignalR)
 - [x] Recuperacao de senha (forgot/reset password)
 - [x] Layout admin com sidebar responsivo
 - [x] Rotas protegidas e publicas
