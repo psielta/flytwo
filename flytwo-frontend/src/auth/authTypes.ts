@@ -53,6 +53,10 @@ export const Permissions = {
   TODOS_CRIAR: "Todos.Criar",
   TODOS_EDITAR: "Todos.Editar",
   TODOS_EXCLUIR: "Todos.Excluir",
+
+  // Notifications
+  NOTIFICACOES_VISUALIZAR: "Notificacoes.Visualizar",
+  NOTIFICACOES_CRIAR: "Notificacoes.Criar",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

@@ -231,6 +231,10 @@ try
 
     app.Run();
 }
+catch (Exception ex) when (ex is Microsoft.Extensions.Hosting.HostAbortedException)
+{
+    // Expected in design-time tooling (dotnet ef) which builds and aborts the host.
+}
 catch (Exception ex)
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
