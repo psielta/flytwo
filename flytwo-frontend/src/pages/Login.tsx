@@ -143,15 +143,6 @@ export function Login() {
             Esqueceu sua senha?
           </Link>
         </Box>
-
-        <Box sx={{ mt: 2, textAlign: "center" }}>
-          <Typography variant="body2" color="text.secondary">
-            Não tem uma conta?{" "}
-            <Link component={RouterLink} to="/register">
-              Cadastre-se
-            </Link>
-          </Typography>
-        </Box>
       </Paper>
     </Box>
   );

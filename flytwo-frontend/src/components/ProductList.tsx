@@ -18,7 +18,8 @@ import {
   DialogContent,
   DialogActions,
   FormHelperText,
-  InputAdornment
+  InputAdornment,
+  Tooltip,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
@@ -26,6 +27,9 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { getApiClient } from "../api/apiClientFactory";
+import { useAuth } from "../auth/useAuth";
+import { Permissions } from "../auth/authTypes";
+import { NoPermission } from "./NoPermission";
 import type { ProductDto, CreateProductRequest, UpdateProductRequest } from "../api/api-client";
 
 const CATEGORIES = ["Electronics", "Clothing", "Books", "Home", "Sports", "Toys", "Food", "Beauty"];
@@ -74,6 +78,8 @@ const initialFormValues: ProductFormValues = {
 };
 
 export function ProductList() {
+  const { hasPermission } = useAuth();
+
   const [products, setProducts] = useState<ProductDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +97,14 @@ export function ProductList() {
   });
   const [totalRows, setTotalRows] = useState(0);
 
+  const canView = hasPermission(Permissions.PRODUTOS_VISUALIZAR);
+  const canCreate = hasPermission(Permissions.PRODUTOS_CRIAR);
+  const canEdit = hasPermission(Permissions.PRODUTOS_EDITAR);
+  const canDelete = hasPermission(Permissions.PRODUTOS_EXCLUIR);
+
   const fetchProducts = useCallback(async (signal?: AbortSignal) => {
+    if (!canView) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -112,7 +125,7 @@ export function ProductList() {
     } finally {
       setLoading(false);
     }
-  }, [paginationModel, selectedCategory]);
+  }, [paginationModel, selectedCategory, canView]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -197,6 +210,11 @@ export function ProductList() {
       currency: "USD",
     }).format(price || 0);
   };
+
+  // Check view permission
+  if (!canView) {
+    return <NoPermission message="Voce nao tem permissao para visualizar produtos." />;
+  }
 
   const columns: GridColDef[] = [
     {
@@ -283,19 +301,27 @@ export function ProductList() {
       filterable: false,
       renderCell: (params: GridRenderCellParams<ProductDto>) => (
         <>
-          <IconButton size="small" onClick={() => startEditing(params.row)} color="primary">
-            <EditIcon />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setProductToDelete(params.row);
-              setDeleteConfirmOpen(true);
-            }}
-            color="error"
-          >
-            <DeleteIcon />
-          </IconButton>
+          {canEdit && (
+            <Tooltip title="Editar">
+              <IconButton size="small" onClick={() => startEditing(params.row)} color="primary">
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          {canDelete && (
+            <Tooltip title="Excluir">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setProductToDelete(params.row);
+                  setDeleteConfirmOpen(true);
+                }}
+                color="error"
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </>
       ),
     },
@@ -307,14 +333,16 @@ export function ProductList() {
         <Typography variant="h4" component="h1">
           Products
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={openNewProductDialog}
-        >
-          Add Product
-        </Button>
+        {canCreate && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={openNewProductDialog}
+          >
+            Add Product
+          </Button>
+        )}
       </Box>
 
       {error && (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import {
@@ -19,12 +19,16 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
-  Chip
+  Chip,
+  Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { getApiClient } from "../api/apiClientFactory";
+import { useAuth } from "../auth/useAuth";
+import { Permissions } from "../auth/authTypes";
+import { NoPermission } from "./NoPermission";
 import type { TodoDto, CreateTodoRequest, UpdateTodoRequest } from "../api/api-client";
 
 const TodoSchema = Yup.object().shape({
@@ -48,6 +52,8 @@ const initialFormValues: TodoFormValues = {
 };
 
 export function TodoList() {
+  const { hasPermission } = useAuth();
+
   const [todos, setTodos] = useState<TodoDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +62,14 @@ export function TodoList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [todoToDelete, setTodoToDelete] = useState<TodoDto | null>(null);
 
-  const fetchTodos = async (signal?: AbortSignal) => {
+  const canView = hasPermission(Permissions.TODOS_VISUALIZAR);
+  const canCreate = hasPermission(Permissions.TODOS_CRIAR);
+  const canEdit = hasPermission(Permissions.TODOS_EDITAR);
+  const canDelete = hasPermission(Permissions.TODOS_EXCLUIR);
+
+  const fetchTodos = useCallback(async (signal?: AbortSignal) => {
+    if (!canView) return;
+
     try {
       setLoading(true);
       setError(null);
@@ -69,13 +82,13 @@ export function TodoList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [canView]);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchTodos(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [fetchTodos]);
 
   const handleSubmit = async (values: TodoFormValues, { resetForm }: { resetForm: () => void }) => {
     try {
@@ -104,6 +117,8 @@ export function TodoList() {
   };
 
   const handleToggleComplete = async (todo: TodoDto) => {
+    if (!canEdit) return;
+
     try {
       const client = getApiClient();
       const request: UpdateTodoRequest = {
@@ -141,6 +156,11 @@ export function TodoList() {
     setDialogOpen(true);
   };
 
+  // Check view permission
+  if (!canView) {
+    return <NoPermission message="Voce nao tem permissao para visualizar todos." />;
+  }
+
   const completedCount = todos.filter(t => t.isCompleted).length;
   const pendingCount = todos.length - completedCount;
 
@@ -156,14 +176,16 @@ export function TodoList() {
             <Chip label={`${completedCount} completed`} color="success" size="small" />
           </Box>
         </Box>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={openNewTodoDialog}
-        >
-          Add Todo
-        </Button>
+        {canCreate && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={openNewTodoDialog}
+          >
+            Add Todo
+          </Button>
+        )}
       </Box>
 
       {error && (
@@ -179,7 +201,7 @@ export function TodoList() {
       ) : todos.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: "center" }}>
           <Typography color="text.secondary">
-            No todos yet. Add one above!
+            No todos yet. {canCreate && "Add one above!"}
           </Typography>
         </Paper>
       ) : (
@@ -194,19 +216,27 @@ export function TodoList() {
                 }}
                 secondaryAction={
                   <Box>
-                    <IconButton size="small" onClick={() => startEditing(todo)} color="primary">
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setTodoToDelete(todo);
-                        setDeleteConfirmOpen(true);
-                      }}
-                      color="error"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+                    {canEdit && (
+                      <Tooltip title="Editar">
+                        <IconButton size="small" onClick={() => startEditing(todo)} color="primary">
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {canDelete && (
+                      <Tooltip title="Excluir">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setTodoToDelete(todo);
+                            setDeleteConfirmOpen(true);
+                          }}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Box>
                 }
               >
@@ -216,6 +246,7 @@ export function TodoList() {
                     checked={todo.isCompleted}
                     onChange={() => handleToggleComplete(todo)}
                     color="primary"
+                    disabled={!canEdit}
                   />
                 </ListItemIcon>
                 <ListItemText

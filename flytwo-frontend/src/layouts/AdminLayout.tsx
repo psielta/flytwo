@@ -31,7 +31,10 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import PersonIcon from "@mui/icons-material/Person";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import InventoryIcon from "@mui/icons-material/Inventory";
+import PeopleIcon from "@mui/icons-material/People";
+import EmailIcon from "@mui/icons-material/Email";
 import { useAuth } from "../auth/useAuth";
+import { Permissions } from "../auth/authTypes";
 import { Logo } from "../components/Logo";
 
 const drawerWidth = 240;
@@ -121,15 +124,11 @@ interface NavItem {
   text: string;
   path: string;
   icon: React.ReactNode;
+  permission?: string;
 }
 
-const navItems: NavItem[] = [
-  { text: "Todos", path: "/todos", icon: <ListAltIcon /> },
-  { text: "Products", path: "/products", icon: <InventoryIcon /> },
-];
-
 export function AdminLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const theme = useTheme();
   const location = useLocation();
 
@@ -139,6 +138,20 @@ export function AdminLayout() {
     const saved = localStorage.getItem("themeMode");
     return saved === "dark" || saved === "light" ? saved : "light";
   });
+
+  // Filter nav items based on permissions
+  const navItems = useMemo(() => {
+    const allNavItems: NavItem[] = [
+      { text: "Todos", path: "/todos", icon: <ListAltIcon />, permission: Permissions.TODOS_VISUALIZAR },
+      { text: "Products", path: "/products", icon: <InventoryIcon />, permission: Permissions.PRODUTOS_VISUALIZAR },
+      { text: "Usuarios", path: "/users", icon: <PeopleIcon />, permission: Permissions.USUARIOS_VISUALIZAR },
+      { text: "Convites", path: "/invites", icon: <EmailIcon />, permission: Permissions.USUARIOS_CONVITES_VISUALIZAR },
+    ];
+    return allNavItems.filter((item) => {
+      if (!item.permission) return true;
+      return hasPermission(item.permission);
+    });
+  }, [hasPermission]);
 
   const customTheme = useMemo(
     () =>
@@ -174,9 +187,9 @@ export function AdminLayout() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     handleMenuClose();
-    logout();
+    await logout();
   };
 
   const userInitial =
@@ -236,8 +249,18 @@ export function AdminLayout() {
             >
               <MenuItem disabled>
                 <PersonIcon sx={{ mr: 1 }} />
-                {user?.fullName || user?.email}
+                <Box>
+                  <Typography variant="body2">
+                    {user?.fullName || user?.email}
+                  </Typography>
+                  {user?.roles && user.roles.length > 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      {user.roles.join(", ")}
+                    </Typography>
+                  )}
+                </Box>
               </MenuItem>
+              <Divider />
               <MenuItem onClick={handleLogout}>
                 <LogoutIcon sx={{ mr: 1 }} />
                 Sair
