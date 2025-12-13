@@ -36,6 +36,7 @@ import EmailIcon from "@mui/icons-material/Email";
 import { useAuth } from "../auth/useAuth";
 import { Permissions } from "../auth/authTypes";
 import { Logo } from "../components/Logo";
+import { NotificationsBell } from "../components/NotificationsBell";
 
 const drawerWidth = 240;
 
@@ -227,6 +228,8 @@ export function AdminLayout() {
                 {mode === "light" ? <Brightness4Icon /> : <Brightness7Icon />}
               </IconButton>
             </Tooltip>
+
+            <NotificationsBell />
 
             <Tooltip title="Conta">
               <IconButton onClick={handleMenuOpen} sx={{ p: 0 }}>
