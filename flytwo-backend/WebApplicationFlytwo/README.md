@@ -30,16 +30,16 @@ ASP.NET Core 8.0 Web API com arquitetura em camadas.
 
 ```
 WebApplicationFlytwo/
-├── Controllers/           # API Controllers (presentation layer)
-├── Data/                  # DbContext + Seeders (data access layer)
-├── DTOs/                  # Request/Response objects
-├── Entities/              # Domain entities (EF Core models)
-├── Mappings/              # AutoMapper profiles
-├── Migrations/            # EF Core migrations
-├── Validators/            # FluentValidation validators
-├── Program.cs             # Application bootstrap & DI configuration
-├── appsettings.json       # Configuration
-└── logs/                  # Serilog file output
+- Controllers/           # API Controllers (presentation layer)
+- Data/                  # DbContext + Seeders (data access layer)
+- DTOs/                  # Request/Response objects
+- Entities/              # Domain entities (EF Core models)
+- Mappings/              # AutoMapper profiles
+- Migrations/            # EF Core migrations
+- Validators/            # FluentValidation validators
+- Program.cs             # Application bootstrap & DI configuration
+- appsettings.json       # Configuration
+- logs/                  # Serilog file output
 ```
 
 ## Configuração de Serviços (Program.cs)
@@ -101,6 +101,7 @@ builder.Services.AddFusionCache()
 - Multi-tenant: cada usuário pertence a uma Empresa via `ApplicationUser.EmpresaId` (JWT claim `empresaId`).
 - Permissões/Policies: permissões (claims) ficam no `PermissionCatalog` e viram policies automaticamente (ex.: `[Authorize(Policy = "Usuarios.Visualizar")]`). Admin bypassa a checagem de permissão, mas regras de negócio (ex.: isolamento por empresa) continuam valendo.
 - Registro público: `POST /api/auth/register` está desabilitado (flow A/C). Criação de usuários é feita por admin via `/api/usuarios` (flow A) ou via convites (flow C).
+- Refresh token: `POST /api/auth/login` e `POST /api/auth/register-invite` retornam refresh token. Para renovar o JWT, use `POST /api/auth/refresh`. Para revogar, use `POST /api/auth/logout`. A expiração é configurável via `Jwt:RefreshTokenExpiryDays`.
 
 - Identity com EF Core + PostgreSQL para gestão de usuários/roles.
 - JWT Bearer para autenticação stateless em APIs.
@@ -113,7 +114,8 @@ builder.Services.AddFusionCache()
   "Key": "ChangeThisKey-InProduction-UseVault-1234567890",
   "Issuer": "FlyTwo.Api",
   "Audience": "FlyTwo.Api.Client",
-  "ExpiryMinutes": 60
+  "ExpiryMinutes": 60,
+  "RefreshTokenExpiryDays": 14
 },
 "SeedAdmin": {
   "Email": "admin@flytwo.local",
@@ -251,10 +253,12 @@ UI: http://localhost:8025 (SMTP em 1025)
 | Method | Route | Request Body | Success | Error | Description |
 |--------|-------|--------------|---------|-------|-------------|
 | POST | /api/auth/register | RegisterRequest | 400 Bad Request | - | Registro público desabilitado (use convites / admin) |
-| POST | /api/auth/login | LoginRequest | 200 OK (token) | 401 Unauthorized | Autentica e retorna JWT |
+| POST | /api/auth/login | LoginRequest | 200 OK (token + refresh) | 401 Unauthorized | Autentica e retorna JWT + refresh token |
 | GET | /api/auth/me | - | 200 OK | 401 Unauthorized | Dados do usuario autenticado |
 | GET | /api/auth/invite-preview?token=... | - | 200 OK | 400, 404 | Preview de convite (flow C) |
-| POST | /api/auth/register-invite | RegisterInviteRequest | 201 Created (token) | 400, 404, 409 | Registro via convite (flow C) |
+| POST | /api/auth/register-invite | RegisterInviteRequest | 201 Created (token + refresh) | 400, 404, 409 | Registro via convite (flow C) |
+| POST | /api/auth/refresh | RefreshRequest | 200 OK (token + refresh) | 401 Unauthorized | Rotaciona refresh token e retorna novo JWT |
+| POST | /api/auth/logout | LogoutRequest | 204 No Content | - | Revoga refresh token (ou revoga todos do usuário autenticado) |
 | POST | /api/auth/forgot-password | ForgotPasswordRequest | 200 OK | 404* | Gera token e envia por email (responde 200 mesmo se user nao existir) |
 | POST | /api/auth/reset-password | ResetPasswordRequest | 204 No Content | 400 Bad Request | Reseta senha com token recebido |
 
@@ -262,7 +266,9 @@ UI: http://localhost:8025 (SMTP em 1025)
 - RegisterRequest: { "email": string, "password": string, "confirmPassword": string, "fullName": string? }
 - LoginRequest: { "email": string, "password": string }
 - RegisterInviteRequest: { "token": string, "password": string, "confirmPassword": string, "fullName": string? }
-- AuthResponse: { "accessToken": string, "expiresAt": DateTime, "email": string, "fullName": string?, "empresaId": Guid?, "roles": string[], "permissions": string[], "tokenType": "Bearer" }
+- RefreshRequest: { "refreshToken": string }
+- LogoutRequest: { "refreshToken": string? }
+- AuthResponse: { "accessToken": string, "expiresAt": DateTime, "refreshToken": string?, "refreshTokenExpiresAt": DateTime?, "email": string, "fullName": string?, "empresaId": Guid?, "roles": string[], "permissions": string[], "tokenType": "Bearer" }
 - ForgotPasswordRequest: { "email": string }
 - ResetPasswordRequest: { "email": string, "token": string, "newPassword": string, "confirmPassword": string }
 
@@ -270,6 +276,7 @@ UI: http://localhost:8025 (SMTP em 1025)
 - Controllers Todo e Product exigem Authorization: Bearer {token} em todos endpoints.
 - Policies (claims): `Todos.*` e `Produtos.*` (ex.: `Todos.Visualizar`, `Produtos.Criar`).
 - Use o cadeado do Swagger UI para testar autenticado.
+- Para renovar token, chame `/api/auth/refresh` enviando o `refreshToken` (nao precisa enviar o JWT).
 
 ### Usuários Controller (roles + claims + policies)
 
