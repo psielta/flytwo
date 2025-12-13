@@ -11,4 +11,6 @@ public class ApplicationUser : IdentityUser
 
     public Guid EmpresaId { get; set; }
     public Empresa Empresa { get; set; } = null!;
+
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

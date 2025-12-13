@@ -99,6 +99,7 @@ try
 
     // JWT Token service
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+    builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
     // Email (SMTP)
     builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));

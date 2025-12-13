@@ -23,6 +23,7 @@ public class AuthController : BaseApiController
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IRefreshTokenService _refreshTokenService;
     private readonly IConfiguration _configuration;
     private readonly IEmailSender _emailSender;
     private readonly IEmailTemplateRenderer _templateRenderer;
@@ -37,6 +38,7 @@ public class AuthController : BaseApiController
         SignInManager<ApplicationUser> signInManager,
         RoleManager<IdentityRole> roleManager,
         IJwtTokenService jwtTokenService,
+        IRefreshTokenService refreshTokenService,
         IConfiguration configuration,
         IEmailSender emailSender,
         IEmailTemplateRenderer templateRenderer,
@@ -48,6 +50,7 @@ public class AuthController : BaseApiController
         _signInManager = signInManager;
         _roleManager = roleManager;
         _jwtTokenService = jwtTokenService;
+        _refreshTokenService = refreshTokenService;
         _configuration = configuration;
         _emailSender = emailSender;
         _templateRenderer = templateRenderer;
@@ -97,6 +100,7 @@ public class AuthController : BaseApiController
         var roles = await _userManager.GetRolesAsync(user);
         var token = await _jwtTokenService.GenerateTokenAsync(user);
         var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
+        var refresh = await _refreshTokenService.IssueAsync(user.Id, GetIpAddress());
         var permissions = (await _userManager.GetClaimsAsync(user))
             .Where(c => c.Type == FlytwoClaimTypes.Permission)
             .Select(c => c.Value)
@@ -108,6 +112,8 @@ public class AuthController : BaseApiController
         {
             AccessToken = token,
             ExpiresAt = expiresAt,
+            RefreshToken = refresh.RefreshToken,
+            RefreshTokenExpiresAt = refresh.ExpiresAt,
             Email = user.Email ?? string.Empty,
             FullName = user.FullName,
             EmpresaId = user.EmpresaId,
@@ -342,17 +348,87 @@ public class AuthController : BaseApiController
 
         var token = await _jwtTokenService.GenerateTokenAsync(user);
         var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
+        var refresh = await _refreshTokenService.IssueAsync(user.Id, GetIpAddress());
 
         return CreatedAtAction(nameof(Me), new { }, new AuthResponse
         {
             AccessToken = token,
             ExpiresAt = expiresAt,
+            RefreshToken = refresh.RefreshToken,
+            RefreshTokenExpiresAt = refresh.ExpiresAt,
             Email = user.Email ?? string.Empty,
             FullName = user.FullName,
             EmpresaId = user.EmpresaId,
             Roles = roles,
             Permissions = permissions
         });
+    }
+
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [SwaggerOperation(Summary = "Rotate refresh token and return a new JWT access token")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] RefreshRequest request)
+    {
+        var rotate = await _refreshTokenService.RotateAsync(request.RefreshToken, GetIpAddress());
+        if (rotate is null)
+            return Unauthorized(new { message = "Invalid refresh token." });
+
+        var user = await _userManager.FindByIdAsync(rotate.UserId);
+        if (user is null || user.EmpresaId == Guid.Empty)
+            return Unauthorized(new { message = "Invalid refresh token." });
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = await _jwtTokenService.GenerateTokenAsync(user);
+        var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
+
+        var permissions = (await _userManager.GetClaimsAsync(user))
+            .Where(c => c.Type == FlytwoClaimTypes.Permission)
+            .Select(c => c.Value)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToArray();
+
+        return Ok(new AuthResponse
+        {
+            AccessToken = token,
+            ExpiresAt = expiresAt,
+            RefreshToken = rotate.RefreshToken,
+            RefreshTokenExpiresAt = rotate.ExpiresAt,
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName,
+            EmpresaId = user.EmpresaId,
+            Roles = roles,
+            Permissions = permissions
+        });
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    [SwaggerOperation(Summary = "Revoke refresh token (or revoke all tokens for the authenticated user)")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    {
+        var ip = GetIpAddress();
+
+        if (!string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            await _refreshTokenService.RevokeAsync(request.RefreshToken, ip);
+            return NoContent();
+        }
+
+        if (UserId is not null)
+        {
+            await _refreshTokenService.RevokeAllAsync(UserId, ip);
+        }
+
+        return NoContent();
+    }
+
+    private string? GetIpAddress()
+    {
+        return HttpContext?.Connection?.RemoteIpAddress?.ToString();
     }
 
     private static string[] DeserializeStringArray(string? json)

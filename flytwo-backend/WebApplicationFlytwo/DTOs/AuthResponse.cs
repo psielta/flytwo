@@ -4,6 +4,8 @@ public class AuthResponse
 {
     public string AccessToken { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? FullName { get; set; }
     public Guid? EmpresaId { get; set; }
