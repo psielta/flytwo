@@ -100,6 +100,7 @@ builder.Services.AddFusionCache()
 
 - Multi-tenant: cada usuário pertence a uma Empresa via `ApplicationUser.EmpresaId` (JWT claim `empresaId`).
 - Permissões/Policies: permissões (claims) ficam no `PermissionCatalog` e viram policies automaticamente (ex.: `[Authorize(Policy = "Usuarios.Visualizar")]`). Admin bypassa a checagem de permissão, mas regras de negócio (ex.: isolamento por empresa) continuam valendo.
+- Registro público: `POST /api/auth/register` está desabilitado (flow A/C). Criação de usuários é feita por admin via `/api/usuarios` (flow A) ou via convites (flow C).
 
 - Identity com EF Core + PostgreSQL para gestão de usuários/roles.
 - JWT Bearer para autenticação stateless em APIs.
@@ -128,7 +129,8 @@ builder.Services.AddFusionCache()
   "From": "no-reply@flytwo.local"
 },
 "Frontend": {
-  "ResetPasswordUrl": "http://localhost:5173/reset-password"
+  "ResetPasswordUrl": "http://localhost:5173/reset-password",
+  "InviteUrl": "http://localhost:5173/accept-invite"
 }
 ```
 
@@ -248,15 +250,18 @@ UI: http://localhost:8025 (SMTP em 1025)
 
 | Method | Route | Request Body | Success | Error | Description |
 |--------|-------|--------------|---------|-------|-------------|
-| POST | /api/auth/register | RegisterRequest | 201 Created (token) | 400 Bad Request, 409 Conflict | Cria usuario e retorna JWT |
+| POST | /api/auth/register | RegisterRequest | 400 Bad Request | - | Registro público desabilitado (use convites / admin) |
 | POST | /api/auth/login | LoginRequest | 200 OK (token) | 401 Unauthorized | Autentica e retorna JWT |
 | GET | /api/auth/me | - | 200 OK | 401 Unauthorized | Dados do usuario autenticado |
+| GET | /api/auth/invite-preview?token=... | - | 200 OK | 400, 404 | Preview de convite (flow C) |
+| POST | /api/auth/register-invite | RegisterInviteRequest | 201 Created (token) | 400, 404, 409 | Registro via convite (flow C) |
 | POST | /api/auth/forgot-password | ForgotPasswordRequest | 200 OK | 404* | Gera token e envia por email (responde 200 mesmo se user nao existir) |
 | POST | /api/auth/reset-password | ResetPasswordRequest | 204 No Content | 400 Bad Request | Reseta senha com token recebido |
 
 **Models**
 - RegisterRequest: { "email": string, "password": string, "confirmPassword": string, "fullName": string? }
 - LoginRequest: { "email": string, "password": string }
+- RegisterInviteRequest: { "token": string, "password": string, "confirmPassword": string, "fullName": string? }
 - AuthResponse: { "accessToken": string, "expiresAt": DateTime, "email": string, "fullName": string?, "empresaId": Guid?, "roles": string[], "permissions": string[], "tokenType": "Bearer" }
 - ForgotPasswordRequest: { "email": string }
 - ResetPasswordRequest: { "email": string, "token": string, "newPassword": string, "confirmPassword": string }
@@ -287,6 +292,19 @@ UI: http://localhost:8025 (SMTP em 1025)
 - Policy name = permission key (ex.: `Usuarios.Visualizar`)
 - Claim type = `permission`, claim value = permission key
 - Ex.: para liberar listagem de usuários para um usuário não-admin, adicione a claim `permission=Usuarios.Visualizar`
+
+### Convites de Usuários (flow C)
+
+| Method | Route | Policy | Description |
+|--------|-------|--------|-------------|
+| GET | /api/usuarios/convites | Usuarios.Convites.Visualizar | Lista convites da empresa |
+| POST | /api/usuarios/convites | Usuarios.Convites.Criar | Cria convite (retorna token + inviteUrl) |
+| DELETE | /api/usuarios/convites/{id} | Usuarios.Convites.Revogar | Revoga convite |
+
+**Models**
+- UserInviteCreateRequest: { "email": string, "roles": string[]?, "permissions": string[]?, "expiresInDays": int, "sendEmail": bool }
+- UserInviteCreateResponse: { "id": Guid, "empresaId": Guid, "email": string, "roles": string[], "permissions": string[], "createdAt": DateTime, "expiresAt": DateTime, "token": string, "inviteUrl": string }
+- UserInviteResponse: { "id": Guid, "empresaId": Guid, "email": string, "roles": string[], "permissions": string[], "createdAt": DateTime, "expiresAt": DateTime, "redeemedAt": DateTime?, "revokedAt": DateTime? }
 ### Todo Controller
 
 | Method | Route | Request Body | Success | Error | Description |

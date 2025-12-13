@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
+using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.DTOs;
 using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Security;
@@ -15,6 +18,7 @@ namespace WebApplicationFlytwo.Controllers;
 [Route("api/[controller]")]
 public class AuthController : BaseApiController
 {
+    private readonly AppDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly RoleManager<IdentityRole> _roleManager;
@@ -28,6 +32,7 @@ public class AuthController : BaseApiController
     private const string DefaultUserRole = FlytwoRoles.User;
 
     public AuthController(
+        AppDbContext context,
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         RoleManager<IdentityRole> roleManager,
@@ -38,6 +43,7 @@ public class AuthController : BaseApiController
         IWebHostEnvironment env,
         ILogger<AuthController> logger)
     {
+        _context = context;
         _userManager = userManager;
         _signInManager = signInManager;
         _roleManager = roleManager;
@@ -51,62 +57,12 @@ public class AuthController : BaseApiController
 
     [HttpPost("register")]
     [AllowAnonymous]
-    [SwaggerOperation(Summary = "Register a new user and return a JWT token")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
+    [SwaggerOperation(Summary = "Public registration is disabled (use invites / admin-managed users)")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+    public Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
     {
-        _logger.LogInformation("Registering user {Email}", request.Email);
-
-        var existingUser = await _userManager.FindByEmailAsync(request.Email);
-        if (existingUser != null)
-        {
-            return Conflict(new { message = "User already exists." });
-        }
-
-        var user = new ApplicationUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            FullName = request.FullName
-        };
-
-        var createResult = await _userManager.CreateAsync(user, request.Password);
-        if (!createResult.Succeeded)
-        {
-            return BadRequest(new { errors = createResult.Errors.Select(e => e.Description) });
-        }
-
-        // Ensure default role exists and assign
-        if (!await _roleManager.RoleExistsAsync(DefaultUserRole))
-        {
-            await _roleManager.CreateAsync(new IdentityRole(DefaultUserRole));
-        }
-        await _userManager.AddToRoleAsync(user, DefaultUserRole);
-
-        var token = await _jwtTokenService.GenerateTokenAsync(user);
-        var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
-        var roles = new[] { DefaultUserRole };
-        var permissions = (await _userManager.GetClaimsAsync(user))
-            .Where(c => c.Type == FlytwoClaimTypes.Permission)
-            .Select(c => c.Value)
-            .Distinct()
-            .OrderBy(x => x)
-            .ToArray();
-
-        var response = new AuthResponse
-        {
-            AccessToken = token,
-            ExpiresAt = expiresAt,
-            Email = user.Email ?? string.Empty,
-            FullName = user.FullName,
-            EmpresaId = user.EmpresaId,
-            Roles = roles,
-            Permissions = permissions
-        };
-
-        return CreatedAtAction(nameof(Me), new { }, response);
+        _logger.LogWarning("Public registration attempted for {Email}", request.Email);
+        return Task.FromResult<ActionResult<AuthResponse>>(BadRequest(new { message = "Public registration is disabled. Ask an admin for an invite." }));
     }
 
     [HttpPost("login")]
@@ -123,6 +79,12 @@ public class AuthController : BaseApiController
         {
             _logger.LogWarning("Login failed for {Email}: user not found", request.Email);
             return Unauthorized(new { message = "Invalid credentials." });
+        }
+
+        if (user.EmpresaId is null)
+        {
+            _logger.LogWarning("Login blocked for {Email}: user has no company (EmpresaId is null)", request.Email);
+            return Unauthorized(new { message = "User is not associated with a company." });
         }
 
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: false);
@@ -245,5 +207,172 @@ public class AuthController : BaseApiController
 
         _logger.LogInformation("Password reset completed for {Email}", request.Email);
         return NoContent();
+    }
+
+    [HttpGet("invite-preview")]
+    [AllowAnonymous]
+    [SwaggerOperation(Summary = "Preview invitation details by token (flow C)")]
+    [ProducesResponseType(typeof(UserInvitePreviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<UserInvitePreviewResponse>> InvitePreview([FromQuery] string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return BadRequest(new { message = "Token is required." });
+
+        var tokenHash = InviteTokenService.ComputeHash(token);
+        var invite = await _context.UserInvites
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.TokenHash == tokenHash);
+
+        if (invite is null)
+            return NotFound();
+
+        var now = DateTime.UtcNow;
+        if (invite.RevokedAt is not null)
+            return BadRequest(new { message = "Invite revoked." });
+        if (invite.RedeemedAt is not null)
+            return BadRequest(new { message = "Invite already redeemed." });
+        if (invite.ExpiresAt <= now)
+            return BadRequest(new { message = "Invite expired." });
+
+        var companyName = await _context.Empresas
+            .AsNoTracking()
+            .Where(e => e.Id == invite.EmpresaId)
+            .Select(e => e.Name)
+            .FirstOrDefaultAsync() ?? "FlyTwo";
+
+        return Ok(new UserInvitePreviewResponse
+        {
+            Email = invite.Email,
+            CompanyName = companyName,
+            Roles = DeserializeStringArray(invite.RolesJson),
+            Permissions = DeserializeStringArray(invite.PermissionsJson),
+            ExpiresAt = invite.ExpiresAt
+        });
+    }
+
+    [HttpPost("register-invite")]
+    [AllowAnonymous]
+    [SwaggerOperation(Summary = "Register a new user using an invite token (flow C)")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AuthResponse>> RegisterInvite([FromBody] RegisterInviteRequest request)
+    {
+        var tokenHash = InviteTokenService.ComputeHash(request.Token);
+        var now = DateTime.UtcNow;
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
+
+        var invite = await _context.UserInvites.FirstOrDefaultAsync(i => i.TokenHash == tokenHash);
+        if (invite is null)
+            return NotFound();
+
+        if (invite.RevokedAt is not null)
+            return BadRequest(new { message = "Invite revoked." });
+        if (invite.RedeemedAt is not null)
+            return BadRequest(new { message = "Invite already redeemed." });
+        if (invite.ExpiresAt <= now)
+            return BadRequest(new { message = "Invite expired." });
+
+        var existingUser = await _userManager.FindByEmailAsync(invite.Email);
+        if (existingUser is not null)
+            return Conflict(new { message = "User already exists." });
+
+        var roles = DeserializeStringArray(invite.RolesJson);
+        if (roles.Length == 0)
+            roles = new[] { DefaultUserRole };
+
+        foreach (var role in roles)
+        {
+            if (!await _roleManager.RoleExistsAsync(role))
+            {
+                return BadRequest(new { message = $"Role '{role}' does not exist." });
+            }
+        }
+
+        var permissions = DeserializeStringArray(invite.PermissionsJson)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        var unknownPermissions = permissions.Where(p => !PermissionCatalog.IsKnown(p)).ToArray();
+        if (unknownPermissions.Length > 0)
+        {
+            return BadRequest(new { message = "Unknown permissions.", unknownPermissions });
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = invite.Email,
+            Email = invite.Email,
+            FullName = request.FullName,
+            EmpresaId = invite.EmpresaId,
+            EmailConfirmed = true
+        };
+
+        var createResult = await _userManager.CreateAsync(user, request.Password);
+        if (!createResult.Succeeded)
+        {
+            return BadRequest(new { errors = createResult.Errors.Select(e => e.Description) });
+        }
+
+        var addRolesResult = await _userManager.AddToRolesAsync(user, roles);
+        if (!addRolesResult.Succeeded)
+        {
+            return BadRequest(new { errors = addRolesResult.Errors.Select(e => e.Description) });
+        }
+
+        if (permissions.Length > 0)
+        {
+            var permissionClaims = permissions.Select(p => new Claim(FlytwoClaimTypes.Permission, p)).ToArray();
+            var addClaimsResult = await _userManager.AddClaimsAsync(user, permissionClaims);
+            if (!addClaimsResult.Succeeded)
+            {
+                return BadRequest(new { errors = addClaimsResult.Errors.Select(e => e.Description) });
+            }
+        }
+
+        invite.RedeemedAt = now;
+        invite.RedeemedByUserId = user.Id;
+        await _context.SaveChangesAsync();
+
+        await tx.CommitAsync();
+
+        var token = await _jwtTokenService.GenerateTokenAsync(user);
+        var expiresAt = DateTime.UtcNow.AddMinutes(_configuration.GetValue<double?>("Jwt:ExpiryMinutes") ?? 60);
+
+        return CreatedAtAction(nameof(Me), new { }, new AuthResponse
+        {
+            AccessToken = token,
+            ExpiresAt = expiresAt,
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName,
+            EmpresaId = user.EmpresaId,
+            Roles = roles,
+            Permissions = permissions
+        });
+    }
+
+    private static string[] DeserializeStringArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return Array.Empty<string>();
+
+        try
+        {
+            var values = JsonSerializer.Deserialize<string[]>(json) ?? Array.Empty<string>();
+            return values
+                .Select(v => v?.Trim())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
     }
 }

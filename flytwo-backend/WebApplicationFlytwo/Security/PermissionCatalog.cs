@@ -10,6 +10,13 @@ public static class PermissionCatalog
         public const string Excluir = "Usuarios.Excluir";
     }
 
+    public static class UsuariosConvites
+    {
+        public const string Visualizar = "Usuarios.Convites.Visualizar";
+        public const string Criar = "Usuarios.Convites.Criar";
+        public const string Revogar = "Usuarios.Convites.Revogar";
+    }
+
     private static readonly PermissionDefinition[] AllPermissions =
     [
         new(
@@ -35,6 +42,24 @@ public static class PermissionCatalog
             Module: "Usuários",
             Action: "Excluir",
             Description: "Permite excluir usuários da empresa."
+        ),
+        new(
+            Key: UsuariosConvites.Visualizar,
+            Module: "Usuários",
+            Action: "Visualizar convites",
+            Description: "Permite visualizar convites de usuários da empresa."
+        ),
+        new(
+            Key: UsuariosConvites.Criar,
+            Module: "Usuários",
+            Action: "Criar convites",
+            Description: "Permite criar convites para usuários da empresa."
+        ),
+        new(
+            Key: UsuariosConvites.Revogar,
+            Module: "Usuários",
+            Action: "Revogar convites",
+            Description: "Permite revogar convites de usuários da empresa."
         )
     ];
 
@@ -46,4 +71,3 @@ public static class PermissionCatalog
 
     public static bool IsKnown(string permissionKey) => PermissionKeys.Contains(permissionKey);
 }
-
