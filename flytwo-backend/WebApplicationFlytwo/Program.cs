@@ -175,13 +175,13 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         await context.Database.MigrateAsync();
-        await ProductSeeder.SeedAsync(context);
+        await ProductSeeder.SeedAsync(context, configuration);
 
         // Seed default admin user/role
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
         await IdentitySeeder.SeedAsync(context, userManager, roleManager, configuration, loggerFactory.CreateLogger("IdentitySeeder"));
     }

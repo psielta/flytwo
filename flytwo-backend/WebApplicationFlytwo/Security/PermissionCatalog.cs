@@ -17,6 +17,22 @@ public static class PermissionCatalog
         public const string Revogar = "Usuarios.Convites.Revogar";
     }
 
+    public static class Produtos
+    {
+        public const string Visualizar = "Produtos.Visualizar";
+        public const string Criar = "Produtos.Criar";
+        public const string Editar = "Produtos.Editar";
+        public const string Excluir = "Produtos.Excluir";
+    }
+
+    public static class Todos
+    {
+        public const string Visualizar = "Todos.Visualizar";
+        public const string Criar = "Todos.Criar";
+        public const string Editar = "Todos.Editar";
+        public const string Excluir = "Todos.Excluir";
+    }
+
     private static readonly PermissionDefinition[] AllPermissions =
     [
         new(
@@ -60,6 +76,54 @@ public static class PermissionCatalog
             Module: "Usuários",
             Action: "Revogar convites",
             Description: "Permite revogar convites de usuários da empresa."
+        ),
+        new(
+            Key: Produtos.Visualizar,
+            Module: "Produtos",
+            Action: "Visualizar",
+            Description: "Permite visualizar produtos da empresa."
+        ),
+        new(
+            Key: Produtos.Criar,
+            Module: "Produtos",
+            Action: "Criar",
+            Description: "Permite criar produtos na empresa."
+        ),
+        new(
+            Key: Produtos.Editar,
+            Module: "Produtos",
+            Action: "Editar",
+            Description: "Permite editar produtos da empresa."
+        ),
+        new(
+            Key: Produtos.Excluir,
+            Module: "Produtos",
+            Action: "Excluir",
+            Description: "Permite excluir produtos da empresa."
+        ),
+        new(
+            Key: Todos.Visualizar,
+            Module: "Todos",
+            Action: "Visualizar",
+            Description: "Permite visualizar todos da empresa."
+        ),
+        new(
+            Key: Todos.Criar,
+            Module: "Todos",
+            Action: "Criar",
+            Description: "Permite criar todos na empresa."
+        ),
+        new(
+            Key: Todos.Editar,
+            Module: "Todos",
+            Action: "Editar",
+            Description: "Permite editar todos da empresa."
+        ),
+        new(
+            Key: Todos.Excluir,
+            Module: "Todos",
+            Action: "Excluir",
+            Description: "Permite excluir todos da empresa."
         )
     ];
 

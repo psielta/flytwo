@@ -6,6 +6,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.DTOs;
 using WebApplicationFlytwo.Entities;
+using WebApplicationFlytwo.Security;
 
 namespace WebApplicationFlytwo.Controllers;
 
@@ -26,25 +27,37 @@ public class TodoController : BaseApiController
     }
 
     [HttpGet]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Todos.Visualizar)]
     [SwaggerOperation(Summary = "Get all todos")]
     [ProducesResponseType(typeof(IEnumerable<TodoDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<TodoDto>>> GetAll()
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting all todos");
-        var todos = await _context.Todos.OrderByDescending(t => t.CreatedAt).ToListAsync();
+        var todos = await _context.Todos
+            .AsNoTracking()
+            .Where(t => t.EmpresaId == EmpresaId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
         return Ok(_mapper.Map<IEnumerable<TodoDto>>(todos));
     }
 
     [HttpGet("{id}")]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Todos.Visualizar)]
     [SwaggerOperation(Summary = "Get todo by id")]
     [ProducesResponseType(typeof(TodoDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TodoDto>> GetById(int id)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting todo with id {Id}", id);
-        var todo = await _context.Todos.FindAsync(id);
+        var todo = await _context.Todos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == EmpresaId);
 
         if (todo == null)
         {
@@ -56,16 +69,21 @@ public class TodoController : BaseApiController
     }
 
     [HttpPost]
+    [Authorize(Policy = PermissionCatalog.Todos.Criar)]
     [SwaggerOperation(Summary = "Create a new todo")]
     [ProducesResponseType(typeof(TodoDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TodoDto>> Create([FromBody] CreateTodoRequest request)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Creating new todo with title: {Title}", request.Title);
 
         var todo = _mapper.Map<Todo>(request);
         todo.CreatedAt = DateTime.UtcNow;
+        todo.EmpresaId = EmpresaId;
 
         _context.Todos.Add(todo);
         await _context.SaveChangesAsync();
@@ -75,6 +93,7 @@ public class TodoController : BaseApiController
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = PermissionCatalog.Todos.Editar)]
     [SwaggerOperation(Summary = "Update an existing todo")]
     [ProducesResponseType(typeof(TodoDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -82,9 +101,12 @@ public class TodoController : BaseApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<TodoDto>> Update(int id, [FromBody] UpdateTodoRequest request)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Updating todo with id {Id}", id);
 
-        var todo = await _context.Todos.FindAsync(id);
+        var todo = await _context.Todos.FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == EmpresaId);
 
         if (todo == null)
         {
@@ -104,15 +126,19 @@ public class TodoController : BaseApiController
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = PermissionCatalog.Todos.Excluir)]
     [SwaggerOperation(Summary = "Delete a todo")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Delete(int id)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Deleting todo with id {Id}", id);
 
-        var todo = await _context.Todos.FindAsync(id);
+        var todo = await _context.Todos.FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == EmpresaId);
 
         if (todo == null)
         {

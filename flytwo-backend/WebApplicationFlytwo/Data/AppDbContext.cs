@@ -41,6 +41,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Todo>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.EmpresaId);
+            entity.HasIndex(e => e.EmpresaId);
+            entity.HasOne(e => e.Empresa)
+                .WithMany()
+                .HasForeignKey(e => e.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).HasMaxLength(1000);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
@@ -49,13 +55,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Product>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.EmpresaId);
+            entity.HasIndex(e => e.EmpresaId);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).HasMaxLength(2000);
             entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Price).HasPrecision(18, 2);
             entity.Property(e => e.Sku).IsRequired().HasMaxLength(50);
-            entity.HasIndex(e => e.Sku).IsUnique();
-            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => new { e.EmpresaId, e.Sku }).IsUnique();
+            entity.HasIndex(e => new { e.EmpresaId, e.Category });
+            entity.HasOne(e => e.Empresa)
+                .WithMany()
+                .HasForeignKey(e => e.EmpresaId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 

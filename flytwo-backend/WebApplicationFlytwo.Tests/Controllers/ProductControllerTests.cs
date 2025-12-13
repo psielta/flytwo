@@ -27,12 +27,15 @@ public class ProductControllerTests : IClassFixture<TestFixture>
         IFusionCache? cache = null,
         Mock<ILogger<ProductController>>? logger = null)
     {
-        return new ProductController(
+        var controller = new ProductController(
             context,
             mapper ?? _fixture.CreateMapper(),
             cache ?? _fixture.CreateCache(),
             (logger ?? _fixture.CreateLogger<ProductController>()).Object
         );
+
+        _fixture.SetAuthenticatedUser(controller);
+        return controller;
     }
 
     #region GetAll Tests

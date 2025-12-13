@@ -6,6 +6,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.DTOs;
 using WebApplicationFlytwo.Entities;
+using WebApplicationFlytwo.Security;
 using ZiggyCreatures.Caching.Fusion;
 
 namespace WebApplicationFlytwo.Controllers;
@@ -41,20 +42,25 @@ public class ProductController : BaseApiController
     }
 
     [HttpGet]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Produtos.Visualizar)]
     [SwaggerOperation(Summary = "Get all products (cached)")]
     [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll()
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting all products");
 
+        var prefix = $"emp:{EmpresaId}:";
         var products = await _cache.GetOrSetAsync(
-            CacheKeyAllProducts,
+            prefix + CacheKeyAllProducts,
             async ct =>
             {
                 _logger.LogInformation("Cache miss for all products - fetching from database");
                 return await _context.Products
                     .AsNoTracking()
+                    .Where(p => p.EmpresaId == EmpresaId)
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync(ct);
             }
@@ -64,28 +70,32 @@ public class ProductController : BaseApiController
     }
 
     [HttpGet("paged")]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Produtos.Visualizar)]
     [SwaggerOperation(Summary = "Get products with pagination (cached)")]
     [ProducesResponseType(typeof(PagedResponse<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResponse<ProductDto>>> GetPaged(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 25)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting products page {PageNumber} with size {PageSize}", pageNumber, pageSize);
 
         pageNumber = Math.Max(1, pageNumber);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
+        var prefix = $"emp:{EmpresaId}:";
         var totalCount = await _cache.GetOrSetAsync(
-            CacheKeyProductsCount,
+            prefix + CacheKeyProductsCount,
             async ct =>
             {
                 _logger.LogInformation("Cache miss for products count - fetching from database");
-                return await _context.Products.CountAsync(ct);
+                return await _context.Products.CountAsync(p => p.EmpresaId == EmpresaId, ct);
             }
         );
 
-        var cacheKey = string.Format(CacheKeyProductsPage, pageNumber, pageSize);
+        var cacheKey = prefix + string.Format(CacheKeyProductsPage, pageNumber, pageSize);
         var products = await _cache.GetOrSetAsync(
             cacheKey,
             async ct =>
@@ -93,6 +103,7 @@ public class ProductController : BaseApiController
                 _logger.LogInformation("Cache miss for products page {PageNumber} - fetching from database", pageNumber);
                 return await _context.Products
                     .AsNoTracking()
+                    .Where(p => p.EmpresaId == EmpresaId)
                     .OrderByDescending(p => p.CreatedAt)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
@@ -110,20 +121,26 @@ public class ProductController : BaseApiController
     }
 
     [HttpGet("{id}")]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Produtos.Visualizar)]
     [SwaggerOperation(Summary = "Get product by id (cached)")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductDto>> GetById(int id)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting product with id {Id}", id);
 
+        var prefix = $"emp:{EmpresaId}:";
         var product = await _cache.GetOrSetAsync(
-            string.Format(CacheKeyProductById, id),
+            prefix + string.Format(CacheKeyProductById, id),
             async ct =>
             {
                 _logger.LogInformation("Cache miss for product {Id} - fetching from database", id);
-                return await _context.Products.FindAsync(new object[] { id }, ct);
+                return await _context.Products
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == EmpresaId, ct);
             }
         );
 
@@ -137,21 +154,27 @@ public class ProductController : BaseApiController
     }
 
     [HttpGet("category/{category}")]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Produtos.Visualizar)]
     [SwaggerOperation(Summary = "Get products by category (cached)")]
     [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetByCategory(string category)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting products by category {Category}", category);
 
+        var categoryLower = category.ToLower();
+        var prefix = $"emp:{EmpresaId}:";
         var products = await _cache.GetOrSetAsync(
-            string.Format(CacheKeyProductsByCategory, category.ToLower()),
+            prefix + string.Format(CacheKeyProductsByCategory, categoryLower),
             async ct =>
             {
                 _logger.LogInformation("Cache miss for category {Category} - fetching from database", category);
                 return await _context.Products
                     .AsNoTracking()
-                    .Where(p => p.Category.ToLower() == category.ToLower() && p.IsActive)
+                    .Where(p => p.EmpresaId == EmpresaId)
+                    .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
                     .OrderBy(p => p.Name)
                     .ToListAsync(ct);
             }
@@ -161,7 +184,7 @@ public class ProductController : BaseApiController
     }
 
     [HttpGet("category/{category}/paged")]
-    [AllowAnonymous]
+    [Authorize(Policy = PermissionCatalog.Produtos.Visualizar)]
     [SwaggerOperation(Summary = "Get products by category with pagination (cached)")]
     [ProducesResponseType(typeof(PagedResponse<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResponse<ProductDto>>> GetByCategoryPaged(
@@ -169,6 +192,9 @@ public class ProductController : BaseApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 25)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Getting products in category {Category} page {PageNumber} with size {PageSize}",
             category, pageNumber, pageSize);
 
@@ -176,19 +202,21 @@ public class ProductController : BaseApiController
         pageSize = Math.Clamp(pageSize, 1, 100);
         var categoryLower = category.ToLower();
 
-        var countCacheKey = string.Format(CacheKeyProductsCategoryCount, categoryLower);
+        var prefix = $"emp:{EmpresaId}:";
+        var countCacheKey = prefix + string.Format(CacheKeyProductsCategoryCount, categoryLower);
         var totalCount = await _cache.GetOrSetAsync(
             countCacheKey,
             async ct =>
             {
                 _logger.LogInformation("Cache miss for category {Category} count - fetching from database", category);
                 return await _context.Products
+                    .Where(p => p.EmpresaId == EmpresaId)
                     .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
                     .CountAsync(ct);
             }
         );
 
-        var pageCacheKey = string.Format(CacheKeyProductsCategoryPage, categoryLower, pageNumber, pageSize);
+        var pageCacheKey = prefix + string.Format(CacheKeyProductsCategoryPage, categoryLower, pageNumber, pageSize);
         var products = await _cache.GetOrSetAsync(
             pageCacheKey,
             async ct =>
@@ -197,6 +225,7 @@ public class ProductController : BaseApiController
                     category, pageNumber);
                 return await _context.Products
                     .AsNoTracking()
+                    .Where(p => p.EmpresaId == EmpresaId)
                     .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
                     .OrderBy(p => p.Name)
                     .Skip((pageNumber - 1) * pageSize)
@@ -215,16 +244,20 @@ public class ProductController : BaseApiController
     }
 
     [HttpPost]
+    [Authorize(Policy = PermissionCatalog.Produtos.Criar)]
     [SwaggerOperation(Summary = "Create a new product")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ProductDto>> Create([FromBody] CreateProductRequest request)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Creating new product with name: {Name}", request.Name);
 
         // Check for duplicate SKU
-        var existingSku = await _context.Products.AnyAsync(p => p.Sku == request.Sku);
+        var existingSku = await _context.Products.AnyAsync(p => p.EmpresaId == EmpresaId && p.Sku == request.Sku);
         if (existingSku)
         {
             _logger.LogWarning("Product with SKU {Sku} already exists", request.Sku);
@@ -234,18 +267,20 @@ public class ProductController : BaseApiController
         var product = _mapper.Map<Product>(request);
         product.CreatedAt = DateTime.UtcNow;
         product.IsActive = true;
+        product.EmpresaId = EmpresaId;
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
         // Invalidate list caches
-        await InvalidateListCaches(product.Category);
+        await InvalidateListCaches(EmpresaId.Value, product.Category);
 
         _logger.LogInformation("Created product with id {Id}", product.Id);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, _mapper.Map<ProductDto>(product));
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = PermissionCatalog.Produtos.Editar)]
     [SwaggerOperation(Summary = "Update an existing product")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -253,9 +288,12 @@ public class ProductController : BaseApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ProductDto>> Update(int id, [FromBody] UpdateProductRequest request)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Updating product with id {Id}", id);
 
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == EmpresaId);
 
         if (product == null)
         {
@@ -276,11 +314,12 @@ public class ProductController : BaseApiController
         await _context.SaveChangesAsync();
 
         // Invalidate caches
-        await _cache.RemoveAsync(string.Format(CacheKeyProductById, id));
-        await InvalidateListCaches(oldCategory);
+        var prefix = $"emp:{EmpresaId}:";
+        await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductById, id));
+        await InvalidateListCaches(EmpresaId.Value, oldCategory);
         if (oldCategory != request.Category)
         {
-            await InvalidateListCaches(request.Category);
+            await InvalidateListCaches(EmpresaId.Value, request.Category);
         }
 
         _logger.LogInformation("Updated product with id {Id}", id);
@@ -288,15 +327,19 @@ public class ProductController : BaseApiController
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = PermissionCatalog.Produtos.Excluir)]
     [SwaggerOperation(Summary = "Delete a product")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Delete(int id)
     {
+        if (EmpresaId is null)
+            return Forbid();
+
         _logger.LogInformation("Deleting product with id {Id}", id);
 
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == EmpresaId);
 
         if (product == null)
         {
@@ -308,24 +351,26 @@ public class ProductController : BaseApiController
         await _context.SaveChangesAsync();
 
         // Invalidate caches
-        await _cache.RemoveAsync(string.Format(CacheKeyProductById, id));
-        await InvalidateListCaches(product.Category);
+        var prefix = $"emp:{EmpresaId}:";
+        await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductById, id));
+        await InvalidateListCaches(EmpresaId.Value, product.Category);
 
         _logger.LogInformation("Deleted product with id {Id}", id);
         return NoContent();
     }
 
-    private async Task InvalidateListCaches(string category)
+    private async Task InvalidateListCaches(Guid empresaId, string category)
     {
         _logger.LogDebug("Invalidating cache for category {Category} and all products", category);
 
+        var prefix = $"emp:{empresaId}:";
         // Invalidate legacy caches
-        await _cache.RemoveAsync(CacheKeyAllProducts);
-        await _cache.RemoveAsync(string.Format(CacheKeyProductsByCategory, category.ToLower()));
+        await _cache.RemoveAsync(prefix + CacheKeyAllProducts);
+        await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductsByCategory, category.ToLower()));
 
         // Invalidate count caches (pagination)
-        await _cache.RemoveAsync(CacheKeyProductsCount);
-        await _cache.RemoveAsync(string.Format(CacheKeyProductsCategoryCount, category.ToLower()));
+        await _cache.RemoveAsync(prefix + CacheKeyProductsCount);
+        await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductsCategoryCount, category.ToLower()));
 
         // Page caches expire via TTL (5 min)
     }

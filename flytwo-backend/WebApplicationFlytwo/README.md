@@ -267,8 +267,8 @@ UI: http://localhost:8025 (SMTP em 1025)
 - ResetPasswordRequest: { "email": string, "token": string, "newPassword": string, "confirmPassword": string }
 
 **Politica de acesso**
-- POST/PUT/DELETE dos controllers Todo e Product exigem Authorization: Bearer {token}.
-- Endpoints GET permanecem publicos.
+- Controllers Todo e Product exigem Authorization: Bearer {token} em todos endpoints.
+- Policies (claims): `Todos.*` e `Produtos.*` (ex.: `Todos.Visualizar`, `Produtos.Criar`).
 - Use o cadeado do Swagger UI para testar autenticado.
 
 ### Usuários Controller (roles + claims + policies)

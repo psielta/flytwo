@@ -28,13 +28,14 @@ public class TodoControllerTests : IClassFixture<TestFixture>
 
         var baseDate = DateTime.UtcNow;
         context.Todos.AddRange(
-            new Todo { Id = 1, Title = "First", CreatedAt = baseDate.AddMinutes(-10) },
-            new Todo { Id = 2, Title = "Second", CreatedAt = baseDate.AddMinutes(-5) },
-            new Todo { Id = 3, Title = "Third", CreatedAt = baseDate }
+            new Todo { Id = 1, EmpresaId = TestFixture.DefaultEmpresaId, Title = "First", CreatedAt = baseDate.AddMinutes(-10) },
+            new Todo { Id = 2, EmpresaId = TestFixture.DefaultEmpresaId, Title = "Second", CreatedAt = baseDate.AddMinutes(-5) },
+            new Todo { Id = 3, EmpresaId = TestFixture.DefaultEmpresaId, Title = "Third", CreatedAt = baseDate }
         );
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         var result = await controller.GetAll();
@@ -58,6 +59,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         var result = await controller.GetAll();
@@ -85,6 +87,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "Test Todo",
             Description = "Test Description",
             IsCompleted = false,
@@ -94,6 +97,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         var result = await controller.GetById(1);
@@ -117,6 +121,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         var result = await controller.GetById(999);
@@ -138,6 +143,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new CreateTodoRequest
         {
             Title = "New Todo",
@@ -166,6 +172,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new CreateTodoRequest { Title = "New Todo" };
         var beforeCreate = DateTime.UtcNow;
 
@@ -189,6 +196,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new CreateTodoRequest { Title = "New Todo" };
 
         // Act
@@ -209,6 +217,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new CreateTodoRequest { Title = "New Todo" };
 
         // Act
@@ -229,6 +238,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new CreateTodoRequest
         {
             Title = "Persisted Todo",
@@ -259,6 +269,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "Original Title",
             Description = "Original Description",
             IsCompleted = false,
@@ -268,6 +279,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new UpdateTodoRequest
         {
             Title = "Updated Title",
@@ -299,6 +311,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "Original Title",
             CreatedAt = DateTime.UtcNow.AddDays(-1),
             UpdatedAt = null
@@ -307,6 +320,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new UpdateTodoRequest { Title = "Updated Title", IsCompleted = false };
         var beforeUpdate = DateTime.UtcNow;
 
@@ -331,6 +345,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new UpdateTodoRequest { Title = "Updated Title", IsCompleted = false };
 
         // Act
@@ -352,6 +367,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "Original Title",
             CreatedAt = originalCreatedAt
         };
@@ -359,6 +375,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new UpdateTodoRequest { Title = "Updated Title", IsCompleted = true };
 
         // Act
@@ -381,6 +398,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "Original Title",
             IsCompleted = false,
             CreatedAt = DateTime.UtcNow
@@ -389,6 +407,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
         var request = new UpdateTodoRequest
         {
             Title = "Persisted Update",
@@ -419,6 +438,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "To Delete",
             CreatedAt = DateTime.UtcNow
         };
@@ -426,6 +446,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         var result = await controller.Delete(1);
@@ -443,6 +464,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         var result = await controller.Delete(999);
@@ -462,6 +484,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var todo = new Todo
         {
             Id = 1,
+            EmpresaId = TestFixture.DefaultEmpresaId,
             Title = "To Delete",
             CreatedAt = DateTime.UtcNow
         };
@@ -469,6 +492,7 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         await controller.Delete(1);
@@ -487,13 +511,14 @@ public class TodoControllerTests : IClassFixture<TestFixture>
         var logger = _fixture.CreateLogger<TodoController>();
 
         context.Todos.AddRange(
-            new Todo { Id = 1, Title = "Todo 1", CreatedAt = DateTime.UtcNow },
-            new Todo { Id = 2, Title = "Todo 2", CreatedAt = DateTime.UtcNow },
-            new Todo { Id = 3, Title = "Todo 3", CreatedAt = DateTime.UtcNow }
+            new Todo { Id = 1, EmpresaId = TestFixture.DefaultEmpresaId, Title = "Todo 1", CreatedAt = DateTime.UtcNow },
+            new Todo { Id = 2, EmpresaId = TestFixture.DefaultEmpresaId, Title = "Todo 2", CreatedAt = DateTime.UtcNow },
+            new Todo { Id = 3, EmpresaId = TestFixture.DefaultEmpresaId, Title = "Todo 3", CreatedAt = DateTime.UtcNow }
         );
         await context.SaveChangesAsync();
 
         var controller = new TodoController(context, mapper, logger.Object);
+        _fixture.SetAuthenticatedUser(controller);
 
         // Act
         await controller.Delete(2);
