@@ -7,6 +7,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using WebApplicationFlytwo.DTOs;
 using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Security;
+using WebApplicationFlytwo.Services;
 
 namespace WebApplicationFlytwo.Controllers;
 
@@ -16,15 +17,18 @@ public class UsuariosController : BaseApiController
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly IAuthRealtimeNotifier _authRealtimeNotifier;
     private readonly ILogger<UsuariosController> _logger;
 
     public UsuariosController(
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
+        IAuthRealtimeNotifier authRealtimeNotifier,
         ILogger<UsuariosController> logger)
     {
         _userManager = userManager;
         _roleManager = roleManager;
+        _authRealtimeNotifier = authRealtimeNotifier;
         _logger = logger;
     }
 
@@ -226,6 +230,8 @@ public class UsuariosController : BaseApiController
         if (user is null)
             return NotFound();
 
+        var authChanged = false;
+
         if (!string.IsNullOrWhiteSpace(request.Email) && !string.Equals(request.Email, user.Email, StringComparison.OrdinalIgnoreCase))
         {
             user.Email = request.Email;
@@ -243,6 +249,7 @@ public class UsuariosController : BaseApiController
 
         if (request.Roles is not null)
         {
+            authChanged = true;
             var desiredRoles = request.Roles
                 .Select(r => r.Trim())
                 .Where(r => !string.IsNullOrWhiteSpace(r))
@@ -276,6 +283,7 @@ public class UsuariosController : BaseApiController
 
         if (request.Permissions is not null)
         {
+            authChanged = true;
             var desiredPermissions = request.Permissions
                 .Select(p => p.Trim())
                 .Where(p => !string.IsNullOrWhiteSpace(p))
@@ -328,6 +336,10 @@ public class UsuariosController : BaseApiController
             .ToArray();
 
         _logger.LogInformation("User {UserId} updated in company {EmpresaId}", user.Id, empresaId);
+        if (authChanged)
+        {
+            await _authRealtimeNotifier.NotifyUserAuthChangedAsync(user.Id, "RolesOrPermissionsChanged");
+        }
 
         return Ok(new UsuarioResponse
         {
@@ -364,6 +376,7 @@ public class UsuariosController : BaseApiController
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
 
         _logger.LogInformation("User {UserId} deleted in company {EmpresaId}", id, empresaId);
+        await _authRealtimeNotifier.NotifyUserAuthChangedAsync(id, "AccountDeleted");
 
         return NoContent();
     }

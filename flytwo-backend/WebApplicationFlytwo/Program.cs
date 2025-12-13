@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using WebApplicationFlytwo.Hubs;
 using WebApplicationFlytwo.Data;
 using WebApplicationFlytwo.Entities;
 using WebApplicationFlytwo.Filters;
@@ -48,7 +49,8 @@ try
         {
             policy.WithOrigins("http://localhost:5173")
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials();
         });
     });
 
@@ -90,6 +92,24 @@ try
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
+
+            // Support SignalR JWT via query string (?access_token=...) for WebSockets.
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+
+                    if (!string.IsNullOrWhiteSpace(accessToken) &&
+                        path.StartsWithSegments("/hubs/auth", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Token = accessToken;
+                    }
+
+                    return Task.CompletedTask;
+                }
+            };
         });
 
     builder.Services.AddAuthorization(options =>
@@ -100,6 +120,10 @@ try
     // JWT Token service
     builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
     builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+
+    // SignalR (real-time notifications, e.g., roles/permissions updates)
+    builder.Services.AddSignalR();
+    builder.Services.AddScoped<IAuthRealtimeNotifier, AuthRealtimeNotifier>();
 
     // Email (SMTP)
     builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
@@ -200,6 +224,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHub<AuthHub>("/hubs/auth");
 
     app.Run();
 }

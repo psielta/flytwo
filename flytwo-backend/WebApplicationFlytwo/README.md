@@ -102,6 +102,7 @@ builder.Services.AddFusionCache()
 - Permissões/Policies: permissões (claims) ficam no `PermissionCatalog` e viram policies automaticamente (ex.: `[Authorize(Policy = "Usuarios.Visualizar")]`). Admin bypassa a checagem de permissão, mas regras de negócio (ex.: isolamento por empresa) continuam valendo.
 - Registro público: `POST /api/auth/register` está desabilitado (flow A/C). Criação de usuários é feita por admin via `/api/usuarios` (flow A) ou via convites (flow C).
 - Refresh token: `POST /api/auth/login` e `POST /api/auth/register-invite` retornam refresh token. Para renovar o JWT, use `POST /api/auth/refresh`. Para revogar, use `POST /api/auth/logout`. A expiração é configurável via `Jwt:RefreshTokenExpiryDays`.
+- Atualização em tempo real (roles/permissões): quando um admin altera roles/permissões de um usuário, o backend envia um evento via SignalR no hub `/hubs/auth`. O frontend deve escutar o método `AuthChanged` e, ao receber, chamar `/api/auth/refresh` para obter um novo JWT com claims atualizadas.
 
 - Identity com EF Core + PostgreSQL para gestão de usuários/roles.
 - JWT Bearer para autenticação stateless em APIs.
@@ -277,6 +278,11 @@ UI: http://localhost:8025 (SMTP em 1025)
 - Policies (claims): `Todos.*` e `Produtos.*` (ex.: `Todos.Visualizar`, `Produtos.Criar`).
 - Use o cadeado do Swagger UI para testar autenticado.
 - Para renovar token, chame `/api/auth/refresh` enviando o `refreshToken` (nao precisa enviar o JWT).
+
+### SignalR (AuthHub)
+
+- Hub: `/hubs/auth` (autenticado via JWT; em WebSockets o token pode ir em `?access_token=...`)
+- Evento: `AuthChanged({ reason, occurredAtUtc })` (enviado para o grupo do usuário quando roles/permissões mudam)
 
 ### Usuários Controller (roles + claims + policies)
 
