@@ -35,17 +35,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(u => u.Empresa)
                 .WithMany(e => e.Users)
                 .HasForeignKey(u => u.EmpresaId)
+                .IsRequired()
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Todo>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.EmpresaId);
+            entity.Property(e => e.EmpresaId).IsRequired();
             entity.HasIndex(e => e.EmpresaId);
             entity.HasOne(e => e.Empresa)
                 .WithMany()
                 .HasForeignKey(e => e.EmpresaId)
+                .IsRequired()
                 .OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).HasMaxLength(1000);
@@ -55,7 +57,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Product>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.EmpresaId);
+            entity.Property(e => e.EmpresaId).IsRequired();
             entity.HasIndex(e => e.EmpresaId);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Description).HasMaxLength(2000);
@@ -67,6 +69,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.HasOne(e => e.Empresa)
                 .WithMany()
                 .HasForeignKey(e => e.EmpresaId)
+                .IsRequired()
                 .OnDelete(DeleteBehavior.Restrict);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });

@@ -36,7 +36,7 @@ public abstract class BaseApiController : ControllerBase
         get
         {
             var raw = User.FindFirstValue(FlytwoClaimTypes.EmpresaId);
-            return Guid.TryParse(raw, out var id) ? id : null;
+            return Guid.TryParse(raw, out var id) && id != Guid.Empty ? id : null;
         }
     }
 

@@ -27,29 +27,6 @@ public static class ProductSeeder
             await context.SaveChangesAsync();
         }
 
-        // Backfill legacy data (pre-multitenancy)
-        var orphanProducts = await context.Products.Where(p => p.EmpresaId == null).ToListAsync();
-        if (orphanProducts.Count > 0)
-        {
-            foreach (var product in orphanProducts)
-            {
-                product.EmpresaId = company.Id;
-            }
-
-            await context.SaveChangesAsync();
-        }
-
-        var orphanTodos = await context.Todos.Where(t => t.EmpresaId == null).ToListAsync();
-        if (orphanTodos.Count > 0)
-        {
-            foreach (var todo in orphanTodos)
-            {
-                todo.EmpresaId = company.Id;
-            }
-
-            await context.SaveChangesAsync();
-        }
-
         if (await context.Products.AnyAsync())
             return; // Already seeded (or already had data)
 

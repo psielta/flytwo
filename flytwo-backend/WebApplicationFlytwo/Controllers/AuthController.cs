@@ -81,9 +81,9 @@ public class AuthController : BaseApiController
             return Unauthorized(new { message = "Invalid credentials." });
         }
 
-        if (user.EmpresaId is null)
+        if (user.EmpresaId == Guid.Empty)
         {
-            _logger.LogWarning("Login blocked for {Email}: user has no company (EmpresaId is null)", request.Email);
+            _logger.LogWarning("Login blocked for {Email}: user has no company (EmpresaId is empty)", request.Email);
             return Unauthorized(new { message = "User is not associated with a company." });
         }
 

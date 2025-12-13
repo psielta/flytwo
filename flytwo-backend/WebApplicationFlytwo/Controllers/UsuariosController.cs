@@ -60,10 +60,11 @@ public class UsuariosController : BaseApiController
     {
         if (EmpresaId is null)
             return Forbid();
+        var empresaId = EmpresaId.Value;
 
         var users = await _userManager.Users
             .AsNoTracking()
-            .Where(u => u.EmpresaId == EmpresaId)
+            .Where(u => u.EmpresaId == empresaId)
             .OrderBy(u => u.Email)
             .ToListAsync();
 
@@ -101,10 +102,11 @@ public class UsuariosController : BaseApiController
     {
         if (EmpresaId is null)
             return Forbid();
+        var empresaId = EmpresaId.Value;
 
         var user = await _userManager.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == id && u.EmpresaId == EmpresaId);
+            .FirstOrDefaultAsync(u => u.Id == id && u.EmpresaId == empresaId);
 
         if (user is null)
             return NotFound();
@@ -138,6 +140,7 @@ public class UsuariosController : BaseApiController
     {
         if (EmpresaId is null)
             return Forbid();
+        var empresaId = EmpresaId.Value;
 
         var existing = await _userManager.FindByEmailAsync(request.Email);
         if (existing is not null)
@@ -172,7 +175,7 @@ public class UsuariosController : BaseApiController
             UserName = request.Email,
             Email = request.Email,
             FullName = request.FullName,
-            EmpresaId = EmpresaId
+            EmpresaId = empresaId
         };
 
         var createResult = await _userManager.CreateAsync(user, request.Password);
@@ -194,7 +197,7 @@ public class UsuariosController : BaseApiController
                 return BadRequest(new { errors = addClaimsResult.Errors.Select(e => e.Description) });
         }
 
-        _logger.LogInformation("User {UserId} created in company {EmpresaId}", user.Id, EmpresaId);
+        _logger.LogInformation("User {UserId} created in company {EmpresaId}", user.Id, empresaId);
 
         return CreatedAtAction(nameof(ObterPorId), new { id = user.Id }, new UsuarioResponse
         {
@@ -217,8 +220,9 @@ public class UsuariosController : BaseApiController
     {
         if (EmpresaId is null)
             return Forbid();
+        var empresaId = EmpresaId.Value;
 
-        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.EmpresaId == EmpresaId);
+        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.EmpresaId == empresaId);
         if (user is null)
             return NotFound();
 
@@ -323,7 +327,7 @@ public class UsuariosController : BaseApiController
             .OrderBy(x => x)
             .ToArray();
 
-        _logger.LogInformation("User {UserId} updated in company {EmpresaId}", user.Id, EmpresaId);
+        _logger.LogInformation("User {UserId} updated in company {EmpresaId}", user.Id, empresaId);
 
         return Ok(new UsuarioResponse
         {
@@ -346,11 +350,12 @@ public class UsuariosController : BaseApiController
     {
         if (EmpresaId is null)
             return Forbid();
+        var empresaId = EmpresaId.Value;
 
         if (string.Equals(UserId, id, StringComparison.Ordinal))
             return BadRequest(new { message = "Você não pode excluir o próprio usuário." });
 
-        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.EmpresaId == EmpresaId);
+        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.EmpresaId == empresaId);
         if (user is null)
             return NotFound();
 
@@ -358,7 +363,7 @@ public class UsuariosController : BaseApiController
         if (!result.Succeeded)
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
 
-        _logger.LogInformation("User {UserId} deleted in company {EmpresaId}", id, EmpresaId);
+        _logger.LogInformation("User {UserId} deleted in company {EmpresaId}", id, empresaId);
 
         return NoContent();
     }

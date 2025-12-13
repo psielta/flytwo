@@ -35,10 +35,11 @@ public class TodoController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting all todos");
         var todos = await _context.Todos
             .AsNoTracking()
-            .Where(t => t.EmpresaId == EmpresaId)
+            .Where(t => t.EmpresaId == empresaId)
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
         return Ok(_mapper.Map<IEnumerable<TodoDto>>(todos));
@@ -54,10 +55,11 @@ public class TodoController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting todo with id {Id}", id);
         var todo = await _context.Todos
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == EmpresaId);
+            .FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == empresaId);
 
         if (todo == null)
         {
@@ -79,11 +81,12 @@ public class TodoController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Creating new todo with title: {Title}", request.Title);
 
         var todo = _mapper.Map<Todo>(request);
         todo.CreatedAt = DateTime.UtcNow;
-        todo.EmpresaId = EmpresaId;
+        todo.EmpresaId = empresaId;
 
         _context.Todos.Add(todo);
         await _context.SaveChangesAsync();
@@ -104,9 +107,10 @@ public class TodoController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Updating todo with id {Id}", id);
 
-        var todo = await _context.Todos.FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == EmpresaId);
+        var todo = await _context.Todos.FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == empresaId);
 
         if (todo == null)
         {
@@ -136,9 +140,10 @@ public class TodoController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Deleting todo with id {Id}", id);
 
-        var todo = await _context.Todos.FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == EmpresaId);
+        var todo = await _context.Todos.FirstOrDefaultAsync(t => t.Id == id && t.EmpresaId == empresaId);
 
         if (todo == null)
         {

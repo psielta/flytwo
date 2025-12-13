@@ -42,10 +42,10 @@ public class JwtTokenService : IJwtTokenService
             claims.Add(new Claim("fullName", user.FullName));
         }
 
-        if (user.EmpresaId is not null)
-        {
-            claims.Add(new Claim(FlytwoClaimTypes.EmpresaId, user.EmpresaId.Value.ToString()));
-        }
+        if (user.EmpresaId == Guid.Empty)
+            throw new InvalidOperationException($"User {user.Id} has no company (EmpresaId is empty).");
+
+        claims.Add(new Claim(FlytwoClaimTypes.EmpresaId, user.EmpresaId.ToString()));
 
         var roles = await _userManager.GetRolesAsync(user);
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));

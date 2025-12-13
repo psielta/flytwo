@@ -50,9 +50,10 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting all products");
 
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         var products = await _cache.GetOrSetAsync(
             prefix + CacheKeyAllProducts,
             async ct =>
@@ -60,7 +61,7 @@ public class ProductController : BaseApiController
                 _logger.LogInformation("Cache miss for all products - fetching from database");
                 return await _context.Products
                     .AsNoTracking()
-                    .Where(p => p.EmpresaId == EmpresaId)
+                    .Where(p => p.EmpresaId == empresaId)
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync(ct);
             }
@@ -80,18 +81,19 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting products page {PageNumber} with size {PageSize}", pageNumber, pageSize);
 
         pageNumber = Math.Max(1, pageNumber);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         var totalCount = await _cache.GetOrSetAsync(
             prefix + CacheKeyProductsCount,
             async ct =>
             {
                 _logger.LogInformation("Cache miss for products count - fetching from database");
-                return await _context.Products.CountAsync(p => p.EmpresaId == EmpresaId, ct);
+                return await _context.Products.CountAsync(p => p.EmpresaId == empresaId, ct);
             }
         );
 
@@ -103,7 +105,7 @@ public class ProductController : BaseApiController
                 _logger.LogInformation("Cache miss for products page {PageNumber} - fetching from database", pageNumber);
                 return await _context.Products
                     .AsNoTracking()
-                    .Where(p => p.EmpresaId == EmpresaId)
+                    .Where(p => p.EmpresaId == empresaId)
                     .OrderByDescending(p => p.CreatedAt)
                     .Skip((pageNumber - 1) * pageSize)
                     .Take(pageSize)
@@ -130,9 +132,10 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting product with id {Id}", id);
 
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         var product = await _cache.GetOrSetAsync(
             prefix + string.Format(CacheKeyProductById, id),
             async ct =>
@@ -140,7 +143,7 @@ public class ProductController : BaseApiController
                 _logger.LogInformation("Cache miss for product {Id} - fetching from database", id);
                 return await _context.Products
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == EmpresaId, ct);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == empresaId, ct);
             }
         );
 
@@ -162,10 +165,11 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting products by category {Category}", category);
 
         var categoryLower = category.ToLower();
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         var products = await _cache.GetOrSetAsync(
             prefix + string.Format(CacheKeyProductsByCategory, categoryLower),
             async ct =>
@@ -173,7 +177,7 @@ public class ProductController : BaseApiController
                 _logger.LogInformation("Cache miss for category {Category} - fetching from database", category);
                 return await _context.Products
                     .AsNoTracking()
-                    .Where(p => p.EmpresaId == EmpresaId)
+                    .Where(p => p.EmpresaId == empresaId)
                     .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
                     .OrderBy(p => p.Name)
                     .ToListAsync(ct);
@@ -195,6 +199,7 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Getting products in category {Category} page {PageNumber} with size {PageSize}",
             category, pageNumber, pageSize);
 
@@ -202,7 +207,7 @@ public class ProductController : BaseApiController
         pageSize = Math.Clamp(pageSize, 1, 100);
         var categoryLower = category.ToLower();
 
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         var countCacheKey = prefix + string.Format(CacheKeyProductsCategoryCount, categoryLower);
         var totalCount = await _cache.GetOrSetAsync(
             countCacheKey,
@@ -210,7 +215,7 @@ public class ProductController : BaseApiController
             {
                 _logger.LogInformation("Cache miss for category {Category} count - fetching from database", category);
                 return await _context.Products
-                    .Where(p => p.EmpresaId == EmpresaId)
+                    .Where(p => p.EmpresaId == empresaId)
                     .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
                     .CountAsync(ct);
             }
@@ -225,7 +230,7 @@ public class ProductController : BaseApiController
                     category, pageNumber);
                 return await _context.Products
                     .AsNoTracking()
-                    .Where(p => p.EmpresaId == EmpresaId)
+                    .Where(p => p.EmpresaId == empresaId)
                     .Where(p => p.Category.ToLower() == categoryLower && p.IsActive)
                     .OrderBy(p => p.Name)
                     .Skip((pageNumber - 1) * pageSize)
@@ -254,10 +259,11 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Creating new product with name: {Name}", request.Name);
 
         // Check for duplicate SKU
-        var existingSku = await _context.Products.AnyAsync(p => p.EmpresaId == EmpresaId && p.Sku == request.Sku);
+        var existingSku = await _context.Products.AnyAsync(p => p.EmpresaId == empresaId && p.Sku == request.Sku);
         if (existingSku)
         {
             _logger.LogWarning("Product with SKU {Sku} already exists", request.Sku);
@@ -267,13 +273,13 @@ public class ProductController : BaseApiController
         var product = _mapper.Map<Product>(request);
         product.CreatedAt = DateTime.UtcNow;
         product.IsActive = true;
-        product.EmpresaId = EmpresaId;
+        product.EmpresaId = empresaId;
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
         // Invalidate list caches
-        await InvalidateListCaches(EmpresaId.Value, product.Category);
+        await InvalidateListCaches(empresaId, product.Category);
 
         _logger.LogInformation("Created product with id {Id}", product.Id);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, _mapper.Map<ProductDto>(product));
@@ -291,9 +297,10 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Updating product with id {Id}", id);
 
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == EmpresaId);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == empresaId);
 
         if (product == null)
         {
@@ -314,12 +321,12 @@ public class ProductController : BaseApiController
         await _context.SaveChangesAsync();
 
         // Invalidate caches
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductById, id));
-        await InvalidateListCaches(EmpresaId.Value, oldCategory);
+        await InvalidateListCaches(empresaId, oldCategory);
         if (oldCategory != request.Category)
         {
-            await InvalidateListCaches(EmpresaId.Value, request.Category);
+            await InvalidateListCaches(empresaId, request.Category);
         }
 
         _logger.LogInformation("Updated product with id {Id}", id);
@@ -337,9 +344,10 @@ public class ProductController : BaseApiController
         if (EmpresaId is null)
             return Forbid();
 
+        var empresaId = EmpresaId.Value;
         _logger.LogInformation("Deleting product with id {Id}", id);
 
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == EmpresaId);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && p.EmpresaId == empresaId);
 
         if (product == null)
         {
@@ -351,9 +359,9 @@ public class ProductController : BaseApiController
         await _context.SaveChangesAsync();
 
         // Invalidate caches
-        var prefix = $"emp:{EmpresaId}:";
+        var prefix = $"emp:{empresaId}:";
         await _cache.RemoveAsync(prefix + string.Format(CacheKeyProductById, id));
-        await InvalidateListCaches(EmpresaId.Value, product.Category);
+        await InvalidateListCaches(empresaId, product.Category);
 
         _logger.LogInformation("Deleted product with id {Id}", id);
         return NoContent();

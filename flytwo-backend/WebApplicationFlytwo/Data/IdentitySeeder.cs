@@ -77,7 +77,7 @@ public static class IdentitySeeder
                 return;
             }
         }
-        else if (adminUser.EmpresaId is null)
+        else if (adminUser.EmpresaId == Guid.Empty)
         {
             adminUser.EmpresaId = company.Id;
             var updateResult = await userManager.UpdateAsync(adminUser);
